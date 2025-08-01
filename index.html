@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Shopping List</title>
+    <title>Smart Shopping List V2</title>
     <style>
         :root {
             --primary-color: #8e44ad;
             --secondary-color: #3498db;
+            --danger-color: #c0392b;
+            --warning-color: #f39c12;
+            --success-color: #27ae60;
             --background-gradient: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
             --white: #ffffff;
             --light-gray: #f0f0f0;
@@ -40,15 +43,19 @@
 
         header {
             background: var(--white);
-            padding: 20px;
+            padding: 15px;
             border-bottom: 1px solid #ddd;
         }
 
-        .list-management {
+        .list-management, .header-actions {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+        }
+
+        .list-management {
+            margin-bottom: 10px;
         }
 
         #list-selector {
@@ -68,19 +75,14 @@
             cursor: pointer;
             font-size: 16px;
             transition: background 0.3s;
+            flex-shrink: 0;
         }
-
-        .btn:hover {
-            background: #732d91;
-        }
-        
-        .btn-secondary {
-            background: var(--secondary-color);
-        }
-        
-        .btn-secondary:hover {
-            background: #2980b9;
-        }
+        .btn:hover { background: #732d91; }
+        .btn-secondary { background: var(--secondary-color); }
+        .btn-secondary:hover { background: #2980b9; }
+        .btn-danger { background: var(--danger-color); }
+        .btn-danger:hover { background: #a5281b; }
+        .btn-small { padding: 5px 10px; font-size: 14px; }
 
         .analytics-header {
             display: flex;
@@ -90,19 +92,10 @@
             background: rgba(255,255,255,0.5);
         }
 
-        .metric {
-            font-size: 14px;
-        }
+        .metric { font-size: 14px; }
+        .metric span { display: block; font-weight: bold; font-size: 18px; }
 
-        .metric span {
-            display: block;
-            font-weight: bold;
-            font-size: 18px;
-        }
-
-        main {
-            padding: 20px;
-        }
+        main { padding: 20px; }
 
         .add-item-form {
             background: var(--white);
@@ -111,38 +104,14 @@
             margin-bottom: 20px;
             box-shadow: var(--shadow);
         }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
         
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
+        .form-row { display: flex; gap: 10px; }
+        .form-group { margin-bottom: 15px; flex-grow: 1; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: var(--border-radius); box-sizing: border-box; }
+        #photo-preview { max-width: 100px; margin-top: 10px; border-radius: var(--border-radius); display: none; }
 
-        .form-group input[type="text"],
-        .form-group input[type="number"],
-        .form-group input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: var(--border-radius);
-            box-sizing: border-box;
-        }
-        
-        #photo-preview {
-            max-width: 100px;
-            margin-top: 10px;
-            border-radius: var(--border-radius);
-            display: none;
-        }
-
-        #item-list {
-            display: grid;
-            gap: 15px;
-        }
+        #item-list { display: grid; gap: 15px; }
 
         .item-card {
             background: var(--white);
@@ -154,173 +123,38 @@
             gap: 15px;
         }
 
-        .item-card img {
-            width: 60px;
-            height: 60px;
-            border-radius: var(--border-radius);
-            object-fit: cover;
-        }
-        
-        .item-info {
-            flex-grow: 1;
-        }
+        .item-card img { width: 60px; height: 60px; border-radius: var(--border-radius); object-fit: cover; }
+        .item-info { flex-grow: 1; }
+        .item-info h3 { margin: 0; font-size: 18px; }
+        .item-info p { margin: 5px 0 0; font-size: 16px; color: var(--primary-color); font-weight: bold; }
+        .delete-item { background: #e74c3c; color: var(--white); border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 16px; }
 
-        .item-info h3 {
-            margin: 0;
-            font-size: 18px;
-        }
-
-        .item-info p {
-            margin: 5px 0 0;
-            font-size: 16px;
-            color: var(--primary-color);
-            font-weight: bold;
-        }
-
-        .delete-item {
-            background: #e74c3c;
-            color: var(--white);
-            border: none;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 16px;
-        }
+        .trip-analysis { background: var(--white); padding: 20px; border-radius: var(--border-radius); margin-top: 20px; }
+        .trip-analysis h3 { text-align: center; margin-top: 0; }
+        .analysis-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .analysis-item span:last-child { font-weight: bold; }
         
-        .trip-analysis {
-            background: var(--white);
-            padding: 20px;
-            border-radius: var(--border-radius);
-            margin-top: 20px;
-        }
-        
-        .trip-analysis h3 {
-            text-align: center;
-            margin-top: 0;
-        }
-        
-        .analysis-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
+        /* Budget Status Styling */
+        #budget-status.on-track { color: var(--success-color); }
+        #budget-status.watch { color: var(--warning-color); }
+        #budget-status.over-budget { color: var(--danger-color); }
 
         /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.6);
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background-color: var(--light-gray);
-            padding: 20px;
-            border-radius: var(--border-radius);
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-            position: relative;
-        }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center; }
+        .modal-content { background-color: var(--light-gray); padding: 20px; border-radius: var(--border-radius); width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); position: relative; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 20px; }
+        .modal-header h2 { margin: 0; }
+        .close-btn { font-size: 28px; font-weight: bold; cursor: pointer; }
+        .modal-content input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: var(--border-radius); box-sizing: border-box; margin-bottom: 15px; }
         
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
+        #gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; max-height: 60vh; overflow-y: auto; }
+        .gallery-item { position: relative; cursor: pointer; }
+        .gallery-item img { width: 100%; height: 100px; object-fit: cover; border-radius: var(--border-radius); }
+        .gallery-item .info { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: var(--white); padding: 5px; font-size: 12px; text-align: center; border-bottom-left-radius: var(--border-radius); border-bottom-right-radius: var(--border-radius); }
         
-        .modal-header h2 {
-            margin: 0;
-        }
-
-        .close-btn {
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        
-        #new-list-name {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: var(--border-radius);
-            box-sizing: border-box;
-            margin-bottom: 15px;
-        }
-        
-        #gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 10px;
-            max-height: 60vh;
-            overflow-y: auto;
-        }
-        
-        .gallery-item {
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .gallery-item img {
-            width: 100%;
-            height: 100px;
-            object-fit: cover;
-            border-radius: var(--border-radius);
-        }
-        
-        .gallery-item .info {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0,0,0,0.6);
-            color: var(--white);
-            padding: 5px;
-            font-size: 12px;
-            border-bottom-left-radius: var(--border-radius);
-            border-bottom-right-radius: var(--border-radius);
-            text-align: center;
-        }
-        
-        #fullscreen-view {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            justify-content: center;
-            align-items: center;
-            z-index: 1001;
-        }
-        
-        #fullscreen-view img {
-            max-width: 90%;
-            max-height: 80%;
-        }
-        
-        #fullscreen-view .close-fullscreen {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            font-size: 40px;
-            color: var(--white);
-            cursor: pointer;
-        }
-
+        #fullscreen-view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1001; }
+        #fullscreen-view img { max-width: 90%; max-height: 80%; }
+        #fullscreen-view .close-fullscreen { position: absolute; top: 20px; right: 30px; font-size: 40px; color: var(--white); cursor: pointer; }
     </style>
 </head>
 <body>
@@ -330,20 +164,23 @@
             <div class="list-management">
                 <select id="list-selector"></select>
                 <button class="btn" id="new-list-btn">+</button>
-                <button class="btn btn-secondary" id="gallery-btn">📷</button>
+                <!-- [1] Function for deleting lists -->
+                <button class="btn btn-danger" id="delete-list-btn">🗑️</button>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-small" id="set-budget-btn">Set Budget</button>
+                <button class="btn btn-secondary btn-small" id="gallery-btn">📷 Photos</button>
+                <!-- [3] Exporting list data -->
+                <button class="btn btn-secondary btn-small" id="export-btn">Export</button>
+                <!-- [4] Menu for multi list metrics -->
+                <button class="btn btn-secondary btn-small" id="global-analytics-btn">📈 Global</button>
             </div>
         </header>
 
         <div class="analytics-header">
-            <div class="metric">
-                Total Items <span id="total-items">0</span>
-            </div>
-            <div class="metric">
-                Total Spent <span id="total-spent">$0.00</span>
-            </div>
-            <div class="metric">
-                Avg. Price <span id="avg-price">$0.00</span>
-            </div>
+            <div class="metric">Total Items <span id="total-items">0</span></div>
+            <div class="metric">Total Spent <span id="total-spent">$0.00</span></div>
+            <div class="metric">Avg. Price <span id="avg-price">$0.00</span></div>
         </div>
 
         <main>
@@ -352,9 +189,16 @@
                     <label for="item-name">Item Name</label>
                     <input type="text" id="item-name" required>
                 </div>
-                <div class="form-group">
-                    <label for="item-price">Price</label>
-                    <input type="number" id="item-price" step="0.01" min="0" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="item-price">Price</label>
+                        <input type="number" id="item-price" step="0.01" min="0" required>
+                    </div>
+                    <!-- [2] Numerical itemization -->
+                    <div class="form-group">
+                        <label for="item-quantity">Quantity</label>
+                        <input type="number" id="item-quantity" value="1" min="1" required>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="item-photo">Price Tag Photo (Optional)</label>
@@ -369,299 +213,402 @@
             <div class="trip-analysis">
                 <h3>Trip Analysis</h3>
                 <div class="analysis-item">
-                    <span>Most Expensive:</span>
-                    <span id="most-expensive">-</span>
+                    <span>Most Expensive Item:</span> <span id="most-expensive">-</span>
                 </div>
                 <div class="analysis-item">
-                    <span>Least Expensive:</span>
-                    <span id="least-expensive">-</span>
+                    <span>Least Expensive Item:</span> <span id="least-expensive">-</span>
                 </div>
                 <div class="analysis-item">
-                    <span>Items with Photos:</span>
-                    <span id="items-with-photos">0 / 0</span>
+                    <span>Items with Photos:</span> <span id="items-with-photos">0 / 0</span>
+                </div>
+                 <!-- [5] Spending limit function -->
+                <div class="analysis-item">
+                    <span>Budget Status:</span> <span id="budget-status">-</span>
                 </div>
             </div>
-
         </main>
     </div>
 
-    <!-- New List Modal -->
-    <div id="new-list-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Create New Shopping List</h2>
-                <span class="close-btn" id="close-list-modal">&times;</span>
-            </div>
-            <input type="text" id="new-list-name" placeholder="e.g., Weekly Groceries">
-            <button class="btn" id="create-list-btn" style="width:100%;">Create List</button>
-        </div>
-    </div>
-    
-    <!-- Gallery Modal -->
-    <div id="gallery-modal" class="modal">
-        <div class="modal-content">
-             <div class="modal-header">
-                <h2>Photo Gallery</h2>
-                <span class="close-btn" id="close-gallery-modal">&times;</span>
-            </div>
-            <div id="gallery-grid"></div>
-        </div>
-    </div>
-    
-    <!-- Fullscreen Image View -->
-    <div id="fullscreen-view">
-        <span class="close-fullscreen">&times;</span>
-        <img id="fullscreen-image" src="">
-    </div>
+    <!-- MODALS -->
+    <div id="new-list-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Create New List</h2><span class="close-btn">×</span></div><input type="text" id="new-list-name" placeholder="e.g., Weekly Groceries"><button class="btn create-list-btn" style="width:100%;">Create List</button></div></div>
+    <div id="gallery-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Photo Gallery</h2><span class="close-btn">×</span></div><div id="gallery-grid"></div></div></div>
+    <div id="set-budget-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Set Budget for <span id="budget-list-name"></span></h2><span class="close-btn">×</span></div><input type="number" id="list-budget-input" placeholder="e.g., 150.00" min="0" step="0.01"><button class="btn" id="save-budget-btn" style="width:100%;">Save Budget</button></div></div>
+    <div id="export-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Export List Data</h2><span class="close-btn">×</span></div><p>Choose a format to download your list.</p><div style="display:flex; gap: 10px;"><button class="btn" id="export-json-btn" style="width:100%;">Export to JSON</button><button class="btn btn-secondary" id="export-csv-btn" style="width:100%;">Export to CSV</button></div></div></div>
+    <div id="global-analytics-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Global Analytics</h2><span class="close-btn">×</span></div><div id="global-analytics-content"></div></div></div>
+    <div id="fullscreen-view"><span class="close-fullscreen">×</span><img id="fullscreen-image" src=""></div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const listSelector = document.getElementById('list-selector');
-            const newListBtn = document.getElementById('new-list-btn');
-            const galleryBtn = document.getElementById('gallery-btn');
-            
-            const totalItemsEl = document.getElementById('total-items');
-            const totalSpentEl = document.getElementById('total-spent');
-            const avgPriceEl = document.getElementById('avg-price');
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Element Selection ---
+        const listSelector = document.getElementById('list-selector');
+        const newListBtn = document.getElementById('new-list-btn');
+        const deleteListBtn = document.getElementById('delete-list-btn'); // [1]
+        const galleryBtn = document.getElementById('gallery-btn');
+        const setBudgetBtn = document.getElementById('set-budget-btn'); // [5]
+        const exportBtn = document.getElementById('export-btn'); // [3]
+        const globalAnalyticsBtn = document.getElementById('global-analytics-btn'); // [4]
 
-            const addItemForm = document.getElementById('add-item-form');
-            const itemNameInput = document.getElementById('item-name');
-            const itemPriceInput = document.getElementById('item-price');
-            const itemPhotoInput = document.getElementById('item-photo');
-            const photoPreview = document.getElementById('photo-preview');
-            
-            const itemListEl = document.getElementById('item-list');
+        const totalItemsEl = document.getElementById('total-items');
+        const totalSpentEl = document.getElementById('total-spent');
+        const avgPriceEl = document.getElementById('avg-price');
 
-            const mostExpensiveEl = document.getElementById('most-expensive');
-            const leastExpensiveEl = document.getElementById('least-expensive');
-            const itemsWithPhotosEl = document.getElementById('items-with-photos');
-            
-            // Modals
-            const newListModal = document.getElementById('new-list-modal');
-            const closeListModalBtn = document.getElementById('close-list-modal');
-            const createListBtn = document.getElementById('create-list-btn');
-            const newListNameInput = document.getElementById('new-list-name');
-            
-            const galleryModal = document.getElementById('gallery-modal');
-            const closeGalleryModalBtn = document.getElementById('close-gallery-modal');
-            const galleryGrid = document.getElementById('gallery-grid');
+        const addItemForm = document.getElementById('add-item-form');
+        const itemNameInput = document.getElementById('item-name');
+        const itemPriceInput = document.getElementById('item-price');
+        const itemQuantityInput = document.getElementById('item-quantity'); // [2]
+        const itemPhotoInput = document.getElementById('item-photo');
+        const photoPreview = document.getElementById('photo-preview');
+        
+        const itemListEl = document.getElementById('item-list');
 
-            const fullscreenView = document.getElementById('fullscreen-view');
-            const fullscreenImage = document.getElementById('fullscreen-image');
-            const closeFullscreenBtn = document.querySelector('.close-fullscreen');
+        const mostExpensiveEl = document.getElementById('most-expensive');
+        const leastExpensiveEl = document.getElementById('least-expensive');
+        const itemsWithPhotosEl = document.getElementById('items-with-photos');
+        const budgetStatusEl = document.getElementById('budget-status'); // [5]
 
+        // --- Modals ---
+        const allModals = document.querySelectorAll('.modal');
+        const newListModal = document.getElementById('new-list-modal');
+        const galleryModal = document.getElementById('gallery-modal');
+        const setBudgetModal = document.getElementById('set-budget-modal'); // [5]
+        const exportModal = document.getElementById('export-modal'); // [3]
+        const globalAnalyticsModal = document.getElementById('global-analytics-modal'); // [4]
+        
+        const fullscreenView = document.getElementById('fullscreen-view');
+        const fullscreenImage = document.getElementById('fullscreen-image');
+        
+        // --- App State ---
+        let appData = JSON.parse(localStorage.getItem('shoppingAppV2')) || { lists: {}, currentList: null };
 
-            let appData = JSON.parse(localStorage.getItem('shoppingApp')) || { lists: {}, currentList: null };
-            
-            function saveData() {
-                localStorage.setItem('shoppingApp', JSON.stringify(appData));
+        // --- Data Functions ---
+        function saveData() {
+            localStorage.setItem('shoppingAppV2', JSON.stringify(appData));
+        }
+
+        function initialize() {
+            if (Object.keys(appData.lists).length === 0) {
+                appData.lists['My First List'] = { items: [], budget: null };
+                appData.currentList = 'My First List';
+                saveData();
+            }
+            updateListSelector();
+            renderCurrentList();
+        }
+
+        function updateListSelector() {
+            listSelector.innerHTML = '';
+            const listNames = Object.keys(appData.lists);
+            if (listNames.length === 0) {
+                // Handle case where all lists are deleted
+                deleteListBtn.style.display = 'none';
+                appData.currentList = null;
+                return;
+            }
+            deleteListBtn.style.display = 'block';
+
+            listNames.forEach(listName => {
+                const option = document.createElement('option');
+                option.value = listName;
+                option.textContent = listName;
+                if (listName === appData.currentList) {
+                    option.selected = true;
+                }
+                listSelector.appendChild(option);
+            });
+        }
+
+        function renderCurrentList() {
+            itemListEl.innerHTML = '';
+            if (!appData.currentList || !appData.lists[appData.currentList]) {
+                updateAnalytics();
+                return;
             }
 
-            function initialize() {
-                if (Object.keys(appData.lists).length === 0) {
-                    appData.lists['My First List'] = { items: [] };
-                    appData.currentList = 'My First List';
+            const currentItems = appData.lists[appData.currentList].items;
+            currentItems.forEach((item, index) => {
+                const itemCard = document.createElement('div');
+                itemCard.className = 'item-card';
+                // [2] Update card to show quantity
+                const quantityText = item.quantity > 1 ? ` (x${item.quantity})` : '';
+                itemCard.innerHTML = `
+                    <img src="${item.photo || 'https://via.placeholder.com/60'}" alt="${item.name}">
+                    <div class="item-info">
+                        <h3>${item.name}${quantityText}</h3>
+                        <p>$${(parseFloat(item.price) * item.quantity).toFixed(2)}</p>
+                    </div>
+                    <button class="delete-item" data-index="${index}">×</button>
+                `;
+                itemListEl.appendChild(itemCard);
+            });
+            updateAnalytics();
+        }
+
+        function updateAnalytics() {
+            const currentList = appData.lists[appData.currentList];
+            if (!currentList) {
+                // Clear all fields if no list is selected
+                ['total-items', 'total-spent', 'avg-price', 'most-expensive', 'least-expensive', 'items-with-photos', 'budget-status']
+                    .forEach(id => document.getElementById(id).textContent = id.includes('spent') || id.includes('price') ? '$0.00' : '0');
+                budgetStatusEl.textContent = '-';
+                return;
+            }
+            
+            const items = currentList.items;
+            const budget = currentList.budget;
+            
+            // [2] Adjust total items calculation for quantity
+            const totalIndividualItems = items.reduce((sum, item) => sum + item.quantity, 0);
+            const totalSpent = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+            const avgPrice = totalIndividualItems > 0 ? totalSpent / totalIndividualItems : 0;
+
+            totalItemsEl.textContent = totalIndividualItems;
+            totalSpentEl.textContent = `$${totalSpent.toFixed(2)}`;
+            avgPriceEl.textContent = `$${avgPrice.toFixed(2)}`;
+
+            if(items.length > 0) {
+                const sortedItems = [...items].sort((a,b) => a.price - b.price);
+                mostExpensiveEl.textContent = `${sortedItems[items.length - 1].name} ($${sortedItems[items.length - 1].price.toFixed(2)})`;
+                leastExpensiveEl.textContent = `${sortedItems[0].name} ($${sortedItems[0].price.toFixed(2)})`;
+            } else {
+                mostExpensiveEl.textContent = '-';
+                leastExpensiveEl.textContent = '-';
+            }
+
+            const photosCount = items.filter(item => item.photo).length;
+            itemsWithPhotosEl.textContent = `${photosCount} / ${items.length}`;
+
+            // [5] Budget Status Logic
+            budgetStatusEl.className = '';
+            if (budget && budget > 0) {
+                const difference = budget - totalSpent;
+                if (difference < 0) {
+                    budgetStatusEl.textContent = `Over by $${Math.abs(difference).toFixed(2)}`;
+                    budgetStatusEl.classList.add('over-budget');
+                } else if (totalSpent / budget >= 0.8) {
+                    budgetStatusEl.textContent = `$${difference.toFixed(2)} remaining`;
+                    budgetStatusEl.classList.add('watch');
+                } else {
+                    budgetStatusEl.textContent = `On Track ($${difference.toFixed(2)} left)`;
+                    budgetStatusEl.classList.add('on-track');
                 }
+            } else {
+                budgetStatusEl.textContent = 'No budget set';
+            }
+        }
+
+        // --- Event Listeners ---
+        listSelector.addEventListener('change', (e) => {
+            appData.currentList = e.target.value;
+            saveData();
+            renderCurrentList();
+        });
+
+        addItemForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = itemNameInput.value.trim();
+            const price = parseFloat(itemPriceInput.value);
+            const quantity = parseInt(itemQuantityInput.value, 10); // [2]
+            const photoFile = itemPhotoInput.files[0];
+
+            if (name && !isNaN(price) && !isNaN(quantity)) {
+                const newItem = {
+                    name,
+                    price,
+                    quantity,
+                    photo: photoPreview.src,
+                    timestamp: new Date().toISOString()
+                };
+                
+                appData.lists[appData.currentList].items.push(newItem);
+                saveData();
+                renderCurrentList();
+                
+                addItemForm.reset();
+                itemQuantityInput.value = 1; // Reset quantity to 1
+                photoPreview.style.display = 'none';
+                photoPreview.src = '';
+            }
+        });
+        
+        itemPhotoInput.addEventListener('change', () => {
+            const file = itemPhotoInput.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    photoPreview.src = e.target.result;
+                    photoPreview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        itemListEl.addEventListener('click', (e) => {
+            if(e.target.classList.contains('delete-item')) {
+                const index = e.target.dataset.index;
+                appData.lists[appData.currentList].items.splice(index, 1);
+                saveData();
+                renderCurrentList();
+            }
+        });
+        
+        // [1] Delete List Listener
+        deleteListBtn.addEventListener('click', () => {
+            const listToDelete = appData.currentList;
+            if (!listToDelete) return;
+
+            if (confirm(`Are you sure you want to permanently delete the list "${listToDelete}"?`)) {
+                delete appData.lists[listToDelete];
+                const remainingLists = Object.keys(appData.lists);
+                appData.currentList = remainingLists.length > 0 ? remainingLists[0] : null;
+                saveData();
                 updateListSelector();
                 renderCurrentList();
             }
-
-            function updateListSelector() {
-                listSelector.innerHTML = '';
-                Object.keys(appData.lists).forEach(listName => {
-                    const option = document.createElement('option');
-                    option.value = listName;
-                    option.textContent = listName;
-                    if (listName === appData.currentList) {
-                        option.selected = true;
-                    }
-                    listSelector.appendChild(option);
-                });
-            }
-
-            function renderCurrentList() {
-                itemListEl.innerHTML = '';
-                if (!appData.currentList || !appData.lists[appData.currentList]) {
-                     updateAnalytics();
-                    return;
-                }
-
-                const currentItems = appData.lists[appData.currentList].items;
-                currentItems.forEach((item, index) => {
-                    const itemCard = document.createElement('div');
-                    itemCard.className = 'item-card';
-                    itemCard.innerHTML = `
-                        <img src="${item.photo || 'https://via.placeholder.com/60'}" alt="${item.name}">
-                        <div class="item-info">
-                            <h3>${item.name}</h3>
-                            <p>$${parseFloat(item.price).toFixed(2)}</p>
-                        </div>
-                        <button class="delete-item" data-index="${index}">&times;</button>
-                    `;
-                    itemListEl.appendChild(itemCard);
-                });
-                updateAnalytics();
-            }
-
-            function updateAnalytics() {
-                if (!appData.currentList || !appData.lists[appData.currentList]) {
-                    totalItemsEl.textContent = '0';
-                    totalSpentEl.textContent = '$0.00';
-                    avgPriceEl.textContent = '$0.00';
-                    mostExpensiveEl.textContent = '-';
-                    leastExpensiveEl.textContent = '-';
-                    itemsWithPhotosEl.textContent = '0 / 0';
-                    return;
-                }
-                
-                const items = appData.lists[appData.currentList].items;
-                const itemCount = items.length;
-                const totalSpent = items.reduce((sum, item) => sum + parseFloat(item.price), 0);
-                const avgPrice = itemCount > 0 ? totalSpent / itemCount : 0;
-                
-                totalItemsEl.textContent = itemCount;
-                totalSpentEl.textContent = `$${totalSpent.toFixed(2)}`;
-                avgPriceEl.textContent = `$${avgPrice.toFixed(2)}`;
-
-                // Trip Analysis
-                if(itemCount > 0) {
-                    const sortedItems = [...items].sort((a,b) => a.price - b.price);
-                    mostExpensiveEl.textContent = `${sortedItems[itemCount - 1].name} ($${sortedItems[itemCount - 1].price.toFixed(2)})`;
-                    leastExpensiveEl.textContent = `${sortedItems[0].name} ($${sortedItems[0].price.toFixed(2)})`;
-                } else {
-                    mostExpensiveEl.textContent = '-';
-                    leastExpensiveEl.textContent = '-';
-                }
-
-                const photosCount = items.filter(item => item.photo).length;
-                itemsWithPhotosEl.textContent = `${photosCount} / ${itemCount}`;
-            }
-
-            // Event Listeners
-            listSelector.addEventListener('change', (e) => {
-                appData.currentList = e.target.value;
-                saveData();
-                renderCurrentList();
-            });
-
-            addItemForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const name = itemNameInput.value.trim();
-                const price = parseFloat(itemPriceInput.value);
-                const photoFile = itemPhotoInput.files[0];
-
-                if (name && !isNaN(price)) {
-                    const newItem = {
-                        name,
-                        price,
-                        photo: photoPreview.src,
-                        timestamp: new Date().toISOString()
-                    };
-                    
-                    appData.lists[appData.currentList].items.push(newItem);
-                    saveData();
-                    renderCurrentList();
-                    
-                    addItemForm.reset();
-                    photoPreview.style.display = 'none';
-                    photoPreview.src = '';
-                }
-            });
-            
-            itemPhotoInput.addEventListener('change', () => {
-                const file = itemPhotoInput.files[0];
-                if(file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        photoPreview.src = e.target.result;
-                        photoPreview.style.display = 'block';
-                    }
-                    reader.readAsDataURL(file);
-                }
-            });
-            
-            itemListEl.addEventListener('click', (e) => {
-                if(e.target.classList.contains('delete-item')) {
-                    const index = e.target.dataset.index;
-                    appData.lists[appData.currentList].items.splice(index, 1);
-                    saveData();
-                    renderCurrentList();
-                }
-            });
-
-            // Modal Logic
-            newListBtn.addEventListener('click', () => {
-                newListModal.style.display = 'flex';
-            });
-            
-            closeListModalBtn.addEventListener('click', () => {
-                newListModal.style.display = 'none';
-            });
-            
-            createListBtn.addEventListener('click', () => {
-                const listName = newListNameInput.value.trim();
-                if(listName && !appData.lists[listName]) {
-                    appData.lists[listName] = { items: [] };
-                    appData.currentList = listName;
-                    saveData();
-                    updateListSelector();
-                    renderCurrentList();
-                    newListNameInput.value = '';
-                    newListModal.style.display = 'none';
-                } else if (appData.lists[listName]) {
-                    alert('A list with this name already exists.');
-                }
-            });
-            
-            galleryBtn.addEventListener('click', () => {
-                galleryGrid.innerHTML = '';
-                 const itemsWithPhotos = appData.lists[appData.currentList]?.items
-                    .filter(item => item.photo)
-                    .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)); // chronological
-
-                if(itemsWithPhotos && itemsWithPhotos.length > 0) {
-                     itemsWithPhotos.forEach(item => {
-                        const galleryItem = document.createElement('div');
-                        galleryItem.className = 'gallery-item';
-                        galleryItem.innerHTML = `
-                            <img src="${item.photo}" alt="${item.name}">
-                            <div class="info">${item.name} - $${item.price.toFixed(2)}</div>
-                        `;
-                        galleryItem.addEventListener('click', () => {
-                           fullscreenImage.src = item.photo;
-                           fullscreenView.style.display = 'flex';
-                        });
-                        galleryGrid.appendChild(galleryItem);
-                    });
-                } else {
-                    galleryGrid.innerHTML = '<p>No photos have been added to this list yet.</p>';
-                }
-                galleryModal.style.display = 'flex';
-            });
-
-            closeGalleryModalBtn.addEventListener('click', () => {
-                galleryModal.style.display = 'none';
-            });
-
-            closeFullscreenBtn.addEventListener('click', () => {
-                fullscreenView.style.display = 'none';
-                fullscreenImage.src = '';
-            });
-
-            window.addEventListener('click', (e) => {
-                if (e.target == newListModal) {
-                    newListModal.style.display = "none";
-                }
-                if (e.target == galleryModal) {
-                    galleryModal.style.display = "none";
-                }
-                 if (e.target == fullscreenView) {
-                    fullscreenView.style.display = "none";
-                }
-            });
-
-            initialize();
         });
+
+
+        // --- Modal & Action Button Logic ---
+        function setupModal(modal, openBtn) {
+            if (openBtn) openBtn.addEventListener('click', () => modal.style.display = 'flex');
+            modal.querySelector('.close-btn').addEventListener('click', () => modal.style.display = 'none');
+        }
+
+        setupModal(newListModal, newListBtn);
+        setupModal(galleryModal, galleryBtn);
+        setupModal(setBudgetModal, setBudgetBtn); // [5]
+        setupModal(exportModal, exportBtn); // [3]
+        setupModal(globalAnalyticsModal, globalAnalyticsBtn); // [4]
+
+        document.querySelector('.create-list-btn').addEventListener('click', () => {
+            const listName = document.getElementById('new-list-name').value.trim();
+            if(listName && !appData.lists[listName]) {
+                appData.lists[listName] = { items: [], budget: null };
+                appData.currentList = listName;
+                saveData();
+                updateListSelector();
+                renderCurrentList();
+                document.getElementById('new-list-name').value = '';
+                newListModal.style.display = 'none';
+            } else if (appData.lists[listName]) {
+                alert('A list with this name already exists.');
+            }
+        });
+
+        galleryBtn.addEventListener('click', () => {
+            const galleryGrid = document.getElementById('gallery-grid');
+            galleryGrid.innerHTML = '';
+            const itemsWithPhotos = appData.lists[appData.currentList]?.items
+                .filter(item => item.photo)
+                .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            if(itemsWithPhotos && itemsWithPhotos.length > 0) {
+                 itemsWithPhotos.forEach(item => {
+                    const galleryItem = document.createElement('div');
+                    galleryItem.className = 'gallery-item';
+                    galleryItem.innerHTML = `<img src="${item.photo}" alt="${item.name}"><div class="info">${item.name} - $${item.price.toFixed(2)}</div>`;
+                    galleryItem.addEventListener('click', () => {
+                       fullscreenImage.src = item.photo;
+                       fullscreenView.style.display = 'flex';
+                    });
+                    galleryGrid.appendChild(galleryItem);
+                });
+            } else {
+                galleryGrid.innerHTML = '<p>No photos added to this list yet.</p>';
+            }
+        });
+        
+        // [5] Set Budget Logic
+        setBudgetBtn.addEventListener('click', () => {
+            const currentList = appData.lists[appData.currentList];
+            if (!currentList) return;
+            document.getElementById('budget-list-name').textContent = appData.currentList;
+            const budgetInput = document.getElementById('list-budget-input');
+            budgetInput.value = currentList.budget || '';
+        });
+
+        document.getElementById('save-budget-btn').addEventListener('click', () => {
+            const budgetValue = parseFloat(document.getElementById('list-budget-input').value);
+            if (!isNaN(budgetValue) && budgetValue >= 0) {
+                appData.lists[appData.currentList].budget = budgetValue;
+            } else {
+                 appData.lists[appData.currentList].budget = null; // Clear budget if input is invalid
+            }
+            saveData();
+            updateAnalytics();
+            setBudgetModal.style.display = 'none';
+        });
+
+        // [3] Export Logic
+        function downloadFile(filename, content, contentType) {
+            const a = document.createElement('a');
+            const blob = new Blob([content], { type: contentType });
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        document.getElementById('export-json-btn').addEventListener('click', () => {
+            const listData = appData.lists[appData.currentList].items;
+            const listName = appData.currentList.replace(/\s/g, '_');
+            downloadFile(`${listName}.json`, JSON.stringify(listData, null, 2), 'application/json');
+        });
+
+        document.getElementById('export-csv-btn').addEventListener('click', () => {
+            const items = appData.lists[appData.currentList].items;
+            if (items.length === 0) return;
+            let csvContent = "Name,Price,Quantity,Photo_URL\r\n";
+            items.forEach(item => {
+                csvContent += `"${item.name}",${item.price},${item.quantity},"${item.photo || ''}"\r\n`;
+            });
+            const listName = appData.currentList.replace(/\s/g, '_');
+            downloadFile(`${listName}.csv`, csvContent, 'text/csv;charset=utf-8;');
+        });
+
+        // [4] Global Analytics Logic
+        globalAnalyticsBtn.addEventListener('click', () => {
+            const contentEl = document.getElementById('global-analytics-content');
+            let totalSpentAll = 0;
+            let totalItemsAll = 0;
+            let listCount = 0;
+            let listTotals = [];
+
+            for (const listName in appData.lists) {
+                listCount++;
+                const list = appData.lists[listName];
+                const listSpent = list.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const listItems = list.items.reduce((sum, item) => sum + item.quantity, 0);
+                totalSpentAll += listSpent;
+                totalItemsAll += listItems;
+                listTotals.push({ name: listName, total: listSpent });
+            }
+            
+            listTotals.sort((a,b) => b.total - a.total);
+            const mostExpensiveList = listTotals.length > 0 ? `${listTotals[0].name} ($${listTotals[0].total.toFixed(2)})` : '-';
+            const avgListSpend = listCount > 0 ? (totalSpentAll / listCount).toFixed(2) : '0.00';
+
+            contentEl.innerHTML = `
+                <div class="analysis-item"><span>Total Lists:</span> <span>${listCount}</span></div>
+                <div class="analysis-item"><span>Total Items Across All Lists:</span> <span>${totalItemsAll}</span></div>
+                <div class="analysis-item"><span>Total Spending (All time):</span> <span>$${totalSpentAll.toFixed(2)}</span></div>
+                <hr>
+                <div class="analysis-item"><span>Average List Total:</span> <span>$${avgListSpend}</span></div>
+                <div class="analysis-item"><span>Most Expensive List:</span> <span>${mostExpensiveList}</span></div>
+            `;
+        });
+
+        // Generic Modal close logic
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.style.display = "none";
+            }
+        });
+        
+        fullscreenView.addEventListener('click', () => fullscreenView.style.display = "none");
+
+        // --- Initialize App ---
+        initialize();
+    });
     </script>
 </body>
 </html>
