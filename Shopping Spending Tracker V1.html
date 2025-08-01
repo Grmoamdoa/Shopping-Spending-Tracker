@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Shopping List</title>
+    <style>
+        :root {
+            --primary-color: #8e44ad;
+            --secondary-color: #3498db;
+            --background-gradient: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            --white: #ffffff;
+            --light-gray: #f0f0f0;
+            --dark-gray: #333333;
+            --shadow: 0 4px 15px rgba(0,0,0,0.1);
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--background-gradient);
+            color: var(--dark-gray);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            background: var(--light-gray);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        header {
+            background: var(--white);
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .list-management {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #list-selector {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: var(--border-radius);
+            background: var(--primary-color);
+            color: var(--white);
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #732d91;
+        }
+        
+        .btn-secondary {
+            background: var(--secondary-color);
+        }
+        
+        .btn-secondary:hover {
+            background: #2980b9;
+        }
+
+        .analytics-header {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            padding: 15px 0;
+            background: rgba(255,255,255,0.5);
+        }
+
+        .metric {
+            font-size: 14px;
+        }
+
+        .metric span {
+            display: block;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        main {
+            padding: 20px;
+        }
+
+        .add-item-form {
+            background: var(--white);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: var(--border-radius);
+            box-sizing: border-box;
+        }
+        
+        #photo-preview {
+            max-width: 100px;
+            margin-top: 10px;
+            border-radius: var(--border-radius);
+            display: none;
+        }
+
+        #item-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .item-card {
+            background: var(--white);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .item-card img {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--border-radius);
+            object-fit: cover;
+        }
+        
+        .item-info {
+            flex-grow: 1;
+        }
+
+        .item-info h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .item-info p {
+            margin: 5px 0 0;
+            font-size: 16px;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        .delete-item {
+            background: #e74c3c;
+            color: var(--white);
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .trip-analysis {
+            background: var(--white);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-top: 20px;
+        }
+        
+        .trip-analysis h3 {
+            text-align: center;
+            margin-top: 0;
+        }
+        
+        .analysis-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--light-gray);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .close-btn {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        #new-list-name {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: var(--border-radius);
+            box-sizing: border-box;
+            margin-bottom: 15px;
+        }
+        
+        #gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .gallery-item {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .gallery-item img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: var(--border-radius);
+        }
+        
+        .gallery-item .info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.6);
+            color: var(--white);
+            padding: 5px;
+            font-size: 12px;
+            border-bottom-left-radius: var(--border-radius);
+            border-bottom-right-radius: var(--border-radius);
+            text-align: center;
+        }
+        
+        #fullscreen-view {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+        }
+        
+        #fullscreen-view img {
+            max-width: 90%;
+            max-height: 80%;
+        }
+        
+        #fullscreen-view .close-fullscreen {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 40px;
+            color: var(--white);
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <div class="list-management">
+                <select id="list-selector"></select>
+                <button class="btn" id="new-list-btn">+</button>
+                <button class="btn btn-secondary" id="gallery-btn">📷</button>
+            </div>
+        </header>
+
+        <div class="analytics-header">
+            <div class="metric">
+                Total Items <span id="total-items">0</span>
+            </div>
+            <div class="metric">
+                Total Spent <span id="total-spent">$0.00</span>
+            </div>
+            <div class="metric">
+                Avg. Price <span id="avg-price">$0.00</span>
+            </div>
+        </div>
+
+        <main>
+            <form class="add-item-form" id="add-item-form">
+                <div class="form-group">
+                    <label for="item-name">Item Name</label>
+                    <input type="text" id="item-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="item-price">Price</label>
+                    <input type="number" id="item-price" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="item-photo">Price Tag Photo (Optional)</label>
+                    <input type="file" id="item-photo" accept="image/*">
+                    <img id="photo-preview" src="" alt="Photo Preview">
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Add Item</button>
+            </form>
+
+            <div id="item-list"></div>
+            
+            <div class="trip-analysis">
+                <h3>Trip Analysis</h3>
+                <div class="analysis-item">
+                    <span>Most Expensive:</span>
+                    <span id="most-expensive">-</span>
+                </div>
+                <div class="analysis-item">
+                    <span>Least Expensive:</span>
+                    <span id="least-expensive">-</span>
+                </div>
+                <div class="analysis-item">
+                    <span>Items with Photos:</span>
+                    <span id="items-with-photos">0 / 0</span>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- New List Modal -->
+    <div id="new-list-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Shopping List</h2>
+                <span class="close-btn" id="close-list-modal">&times;</span>
+            </div>
+            <input type="text" id="new-list-name" placeholder="e.g., Weekly Groceries">
+            <button class="btn" id="create-list-btn" style="width:100%;">Create List</button>
+        </div>
+    </div>
+    
+    <!-- Gallery Modal -->
+    <div id="gallery-modal" class="modal">
+        <div class="modal-content">
+             <div class="modal-header">
+                <h2>Photo Gallery</h2>
+                <span class="close-btn" id="close-gallery-modal">&times;</span>
+            </div>
+            <div id="gallery-grid"></div>
+        </div>
+    </div>
+    
+    <!-- Fullscreen Image View -->
+    <div id="fullscreen-view">
+        <span class="close-fullscreen">&times;</span>
+        <img id="fullscreen-image" src="">
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const listSelector = document.getElementById('list-selector');
+            const newListBtn = document.getElementById('new-list-btn');
+            const galleryBtn = document.getElementById('gallery-btn');
+            
+            const totalItemsEl = document.getElementById('total-items');
+            const totalSpentEl = document.getElementById('total-spent');
+            const avgPriceEl = document.getElementById('avg-price');
+
+            const addItemForm = document.getElementById('add-item-form');
+            const itemNameInput = document.getElementById('item-name');
+            const itemPriceInput = document.getElementById('item-price');
+            const itemPhotoInput = document.getElementById('item-photo');
+            const photoPreview = document.getElementById('photo-preview');
+            
+            const itemListEl = document.getElementById('item-list');
+
+            const mostExpensiveEl = document.getElementById('most-expensive');
+            const leastExpensiveEl = document.getElementById('least-expensive');
+            const itemsWithPhotosEl = document.getElementById('items-with-photos');
+            
+            // Modals
+            const newListModal = document.getElementById('new-list-modal');
+            const closeListModalBtn = document.getElementById('close-list-modal');
+            const createListBtn = document.getElementById('create-list-btn');
+            const newListNameInput = document.getElementById('new-list-name');
+            
+            const galleryModal = document.getElementById('gallery-modal');
+            const closeGalleryModalBtn = document.getElementById('close-gallery-modal');
+            const galleryGrid = document.getElementById('gallery-grid');
+
+            const fullscreenView = document.getElementById('fullscreen-view');
+            const fullscreenImage = document.getElementById('fullscreen-image');
+            const closeFullscreenBtn = document.querySelector('.close-fullscreen');
+
+
+            let appData = JSON.parse(localStorage.getItem('shoppingApp')) || { lists: {}, currentList: null };
+            
+            function saveData() {
+                localStorage.setItem('shoppingApp', JSON.stringify(appData));
+            }
+
+            function initialize() {
+                if (Object.keys(appData.lists).length === 0) {
+                    appData.lists['My First List'] = { items: [] };
+                    appData.currentList = 'My First List';
+                }
+                updateListSelector();
+                renderCurrentList();
+            }
+
+            function updateListSelector() {
+                listSelector.innerHTML = '';
+                Object.keys(appData.lists).forEach(listName => {
+                    const option = document.createElement('option');
+                    option.value = listName;
+                    option.textContent = listName;
+                    if (listName === appData.currentList) {
+                        option.selected = true;
+                    }
+                    listSelector.appendChild(option);
+                });
+            }
+
+            function renderCurrentList() {
+                itemListEl.innerHTML = '';
+                if (!appData.currentList || !appData.lists[appData.currentList]) {
+                     updateAnalytics();
+                    return;
+                }
+
+                const currentItems = appData.lists[appData.currentList].items;
+                currentItems.forEach((item, index) => {
+                    const itemCard = document.createElement('div');
+                    itemCard.className = 'item-card';
+                    itemCard.innerHTML = `
+                        <img src="${item.photo || 'https://via.placeholder.com/60'}" alt="${item.name}">
+                        <div class="item-info">
+                            <h3>${item.name}</h3>
+                            <p>$${parseFloat(item.price).toFixed(2)}</p>
+                        </div>
+                        <button class="delete-item" data-index="${index}">&times;</button>
+                    `;
+                    itemListEl.appendChild(itemCard);
+                });
+                updateAnalytics();
+            }
+
+            function updateAnalytics() {
+                if (!appData.currentList || !appData.lists[appData.currentList]) {
+                    totalItemsEl.textContent = '0';
+                    totalSpentEl.textContent = '$0.00';
+                    avgPriceEl.textContent = '$0.00';
+                    mostExpensiveEl.textContent = '-';
+                    leastExpensiveEl.textContent = '-';
+                    itemsWithPhotosEl.textContent = '0 / 0';
+                    return;
+                }
+                
+                const items = appData.lists[appData.currentList].items;
+                const itemCount = items.length;
+                const totalSpent = items.reduce((sum, item) => sum + parseFloat(item.price), 0);
+                const avgPrice = itemCount > 0 ? totalSpent / itemCount : 0;
+                
+                totalItemsEl.textContent = itemCount;
+                totalSpentEl.textContent = `$${totalSpent.toFixed(2)}`;
+                avgPriceEl.textContent = `$${avgPrice.toFixed(2)}`;
+
+                // Trip Analysis
+                if(itemCount > 0) {
+                    const sortedItems = [...items].sort((a,b) => a.price - b.price);
+                    mostExpensiveEl.textContent = `${sortedItems[itemCount - 1].name} ($${sortedItems[itemCount - 1].price.toFixed(2)})`;
+                    leastExpensiveEl.textContent = `${sortedItems[0].name} ($${sortedItems[0].price.toFixed(2)})`;
+                } else {
+                    mostExpensiveEl.textContent = '-';
+                    leastExpensiveEl.textContent = '-';
+                }
+
+                const photosCount = items.filter(item => item.photo).length;
+                itemsWithPhotosEl.textContent = `${photosCount} / ${itemCount}`;
+            }
+
+            // Event Listeners
+            listSelector.addEventListener('change', (e) => {
+                appData.currentList = e.target.value;
+                saveData();
+                renderCurrentList();
+            });
+
+            addItemForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = itemNameInput.value.trim();
+                const price = parseFloat(itemPriceInput.value);
+                const photoFile = itemPhotoInput.files[0];
+
+                if (name && !isNaN(price)) {
+                    const newItem = {
+                        name,
+                        price,
+                        photo: photoPreview.src,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    appData.lists[appData.currentList].items.push(newItem);
+                    saveData();
+                    renderCurrentList();
+                    
+                    addItemForm.reset();
+                    photoPreview.style.display = 'none';
+                    photoPreview.src = '';
+                }
+            });
+            
+            itemPhotoInput.addEventListener('change', () => {
+                const file = itemPhotoInput.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        photoPreview.src = e.target.result;
+                        photoPreview.style.display = 'block';
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            itemListEl.addEventListener('click', (e) => {
+                if(e.target.classList.contains('delete-item')) {
+                    const index = e.target.dataset.index;
+                    appData.lists[appData.currentList].items.splice(index, 1);
+                    saveData();
+                    renderCurrentList();
+                }
+            });
+
+            // Modal Logic
+            newListBtn.addEventListener('click', () => {
+                newListModal.style.display = 'flex';
+            });
+            
+            closeListModalBtn.addEventListener('click', () => {
+                newListModal.style.display = 'none';
+            });
+            
+            createListBtn.addEventListener('click', () => {
+                const listName = newListNameInput.value.trim();
+                if(listName && !appData.lists[listName]) {
+                    appData.lists[listName] = { items: [] };
+                    appData.currentList = listName;
+                    saveData();
+                    updateListSelector();
+                    renderCurrentList();
+                    newListNameInput.value = '';
+                    newListModal.style.display = 'none';
+                } else if (appData.lists[listName]) {
+                    alert('A list with this name already exists.');
+                }
+            });
+            
+            galleryBtn.addEventListener('click', () => {
+                galleryGrid.innerHTML = '';
+                 const itemsWithPhotos = appData.lists[appData.currentList]?.items
+                    .filter(item => item.photo)
+                    .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)); // chronological
+
+                if(itemsWithPhotos && itemsWithPhotos.length > 0) {
+                     itemsWithPhotos.forEach(item => {
+                        const galleryItem = document.createElement('div');
+                        galleryItem.className = 'gallery-item';
+                        galleryItem.innerHTML = `
+                            <img src="${item.photo}" alt="${item.name}">
+                            <div class="info">${item.name} - $${item.price.toFixed(2)}</div>
+                        `;
+                        galleryItem.addEventListener('click', () => {
+                           fullscreenImage.src = item.photo;
+                           fullscreenView.style.display = 'flex';
+                        });
+                        galleryGrid.appendChild(galleryItem);
+                    });
+                } else {
+                    galleryGrid.innerHTML = '<p>No photos have been added to this list yet.</p>';
+                }
+                galleryModal.style.display = 'flex';
+            });
+
+            closeGalleryModalBtn.addEventListener('click', () => {
+                galleryModal.style.display = 'none';
+            });
+
+            closeFullscreenBtn.addEventListener('click', () => {
+                fullscreenView.style.display = 'none';
+                fullscreenImage.src = '';
+            });
+
+            window.addEventListener('click', (e) => {
+                if (e.target == newListModal) {
+                    newListModal.style.display = "none";
+                }
+                if (e.target == galleryModal) {
+                    galleryModal.style.display = "none";
+                }
+                 if (e.target == fullscreenView) {
+                    fullscreenView.style.display = "none";
+                }
+            });
+
+            initialize();
+        });
+    </script>
+</body>
+</html>
