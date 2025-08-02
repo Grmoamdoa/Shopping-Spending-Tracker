@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Shopping List V2.1</title>
-    <!-- [V2.1] ADD CHART.JS LIBRARY -->
+    <title>Smart Shopping List V2.3</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -144,6 +143,7 @@
         .modal-content { background-color: var(--light-gray); padding: 20px; border-radius: var(--border-radius); width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); position: relative; }
         .modal-actions { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
         .modal-actions .btn { width: 100%; }
+        .chart-container { position: relative; height: 220px; width: 100%; margin-bottom: 20px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 20px; }
         .modal-header h2 { margin: 0; }
         .close-btn { font-size: 28px; font-weight: bold; cursor: pointer; }
@@ -232,14 +232,15 @@
     <div id="set-budget-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Set Budget for <span id="budget-list-name"></span></h2><span class="close-btn">×</span></div><input type="number" id="list-budget-input" placeholder="e.g., 150.00" min="0" step="0.01"><button class="btn" id="save-budget-btn" style="width:100%;">Save Budget</button></div></div>
     <div id="export-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Export List Data</h2><span class="close-btn">×</span></div><p>Choose a format to download your list.</p><div class="modal-actions"><button class="btn" id="export-json-btn">Export to JSON</button><button class="btn btn-secondary" id="export-csv-btn">Export to CSV</button></div></div></div>
     
-    <!-- [V2.1] UPDATED GLOBAL ANALYTICS MODAL -->
     <div id="global-analytics-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Global Analytics</h2>
                 <span class="close-btn">×</span>
             </div>
-            <canvas id="spending-chart" style="margin-bottom: 20px;"></canvas>
+            <div class="chart-container">
+                <canvas id="spending-chart"></canvas>
+            </div>
             <div id="global-analytics-content"></div>
         </div>
     </div>
@@ -257,36 +258,32 @@
         const exportBtn = document.getElementById('export-btn');
         const globalAnalyticsBtn = document.getElementById('global-analytics-btn');
 
+        // ... (rest of DOM selections are the same)
         const totalItemsEl = document.getElementById('total-items');
         const totalSpentEl = document.getElementById('total-spent');
         const avgPriceEl = document.getElementById('avg-price');
-
         const addItemForm = document.getElementById('add-item-form');
         const itemNameInput = document.getElementById('item-name');
         const itemPriceInput = document.getElementById('item-price');
         const itemQuantityInput = document.getElementById('item-quantity');
         const itemPhotoInput = document.getElementById('item-photo');
         const photoPreview = document.getElementById('photo-preview');
-        
         const itemListEl = document.getElementById('item-list');
-
         const mostExpensiveEl = document.getElementById('most-expensive');
         const leastExpensiveEl = document.getElementById('least-expensive');
         const itemsWithPhotosEl = document.getElementById('items-with-photos');
         const budgetStatusEl = document.getElementById('budget-status');
-
         const allModals = document.querySelectorAll('.modal');
         const newListModal = document.getElementById('new-list-modal');
         const galleryModal = document.getElementById('gallery-modal');
         const setBudgetModal = document.getElementById('set-budget-modal');
         const exportModal = document.getElementById('export-modal');
         const globalAnalyticsModal = document.getElementById('global-analytics-modal');
-        
         const fullscreenView = document.getElementById('fullscreen-view');
         const fullscreenImage = document.getElementById('fullscreen-image');
         
         let appData = JSON.parse(localStorage.getItem('shoppingAppV2')) || { lists: {}, currentList: null };
-        let mySpendingChart = null; // [V2.1] This will hold our chart instance
+        let mySpendingChart = null;
 
         function saveData() {
             localStorage.setItem('shoppingAppV2', JSON.stringify(appData));
@@ -294,7 +291,8 @@
 
         function initialize() {
             if (Object.keys(appData.lists).length === 0) {
-                appData.lists['My First List'] = { items: [], budget: null };
+                // [V2.3] Add createdAt to the first default list
+                appData.lists['My First List'] = { items: [], budget: null, createdAt: new Date().toISOString() };
                 appData.currentList = 'My First List';
                 saveData();
             }
@@ -302,6 +300,7 @@
             renderCurrentList();
         }
 
+        // ... (updateListSelector, renderCurrentList, and updateAnalytics are unchanged)
         function updateListSelector() {
             listSelector.innerHTML = '';
             const listNames = Object.keys(appData.lists);
@@ -398,6 +397,7 @@
             }
         }
 
+
         listSelector.addEventListener('change', (e) => {
             appData.currentList = e.target.value;
             saveData();
@@ -468,7 +468,8 @@
         document.querySelector('.create-list-btn').addEventListener('click', () => {
             const listName = document.getElementById('new-list-name').value.trim();
             if(listName && !appData.lists[listName]) {
-                appData.lists[listName] = { items: [], budget: null };
+                // [V2.3] ADD CREATION DATE TO NEW LISTS
+                appData.lists[listName] = { items: [], budget: null, createdAt: new Date().toISOString() };
                 appData.currentList = listName;
                 saveData();
                 updateListSelector();
@@ -480,6 +481,7 @@
             }
         });
 
+        // ... (galleryBtn, setBudgetBtn, and export logic are unchanged)
         galleryBtn.addEventListener('click', () => {
             const galleryGrid = document.getElementById('gallery-grid');
             galleryGrid.innerHTML = '';
@@ -540,20 +542,21 @@
             downloadFile(`${listName}.csv`, csvContent, 'text/csv;charset=utf-8;');
         });
 
-        // [V2.1] UPDATED GLOBAL ANALYTICS LOGIC
+
+        // [V2.3] FULLY REVISED GLOBAL ANALYTICS LOGIC
         globalAnalyticsBtn.addEventListener('click', () => {
             if (mySpendingChart) { mySpendingChart.destroy(); }
             
             const contentEl = document.getElementById('global-analytics-content');
-            const canvasEl = document.getElementById('spending-chart');
+            const chartContainer = document.querySelector('.chart-container');
             const lists = Object.keys(appData.lists);
 
             if (lists.length === 0) {
                 contentEl.innerHTML = "<p>No lists available to analyze.</p>";
-                canvasEl.style.display = 'none';
+                chartContainer.style.display = 'none';
                 return;
             }
-            canvasEl.style.display = 'block';
+            chartContainer.style.display = 'block';
 
             let totalSpentAll = 0, totalItemsAll = 0, listTotals = [];
 
@@ -563,25 +566,32 @@
                 const listItems = list.items.reduce((sum, item) => sum + item.quantity, 0);
                 totalSpentAll += listSpent;
                 totalItemsAll += listItems;
-                listTotals.push({ name: listName, total: listSpent });
+                // Add the createdAt timestamp to our processing array. Use a very old date for lists without one.
+                listTotals.push({ name: listName, total: listSpent, createdAt: list.createdAt || '1970-01-01T00:00:00.000Z' });
             }
             
-            listTotals.sort((a,b) => b.total - a.total);
+            // First, find the most expensive list BEFORE we re-sort the array by date
+            const mostExpensive = listTotals.reduce((max, list) => list.total > max.total ? list : max, listTotals[0]);
+
+            // Now, sort the lists chronologically
+            listTotals.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
             const chartLabels = listTotals.map(list => list.name);
             const chartData = listTotals.map(list => list.total);
 
-            const ctx = canvasEl.getContext('2d');
+            const ctx = document.getElementById('spending-chart').getContext('2d');
             mySpendingChart = new Chart(ctx, {
-                type: 'bar',
+                type: 'line',
                 data: {
                     labels: chartLabels,
                     datasets: [{
                         label: 'Total Spending per List',
                         data: chartData,
-                        backgroundColor: 'rgba(142, 68, 173, 0.7)',
+                        backgroundColor: 'rgba(142, 68, 173, 0.2)',
                         borderColor: 'rgba(142, 68, 173, 1)',
-                        borderWidth: 1
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.1
                     }]
                 },
                 options: {
@@ -600,7 +610,8 @@
                 }
             });
 
-            const mostExpensiveList = listTotals.length > 0 ? `${listTotals[0].name} ($${listTotals[0].total.toFixed(2)})` : '-';
+            // Update text metrics, using our separately calculated 'mostExpensive' object
+            const mostExpensiveText = mostExpensive ? `${mostExpensive.name} ($${mostExpensive.total.toFixed(2)})` : '-';
             const avgListSpend = lists.length > 0 ? (totalSpentAll / lists.length).toFixed(2) : '0.00';
 
             contentEl.innerHTML = `
@@ -609,7 +620,7 @@
                 <div class="analysis-item"><span>Total Spending (All time):</span> <span>$${totalSpentAll.toFixed(2)}</span></div>
                 <hr>
                 <div class="analysis-item"><span>Average List Total:</span> <span>$${avgListSpend}</span></div>
-                <div class="analysis-item"><span>Most Expensive List:</span> <span>${mostExpensiveList}</span></div>
+                <div class="analysis-item"><span>Most Expensive List:</span> <span>${mostExpensiveText}</span></div>
             `;
         });
 
