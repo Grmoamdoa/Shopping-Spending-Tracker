@@ -363,7 +363,25 @@
         function openEditItemModal(e) { /* Full implementation here */ const t=appData.lists[appData.currentListId],o=t.items.find(t=>t.id===e);o&&(editItemIdInput.value=o.id,editItemNameInput.value=o.name,editItemPriceInput.value=o.price,editItemQuantityInput.value=o.quantity,editPhotoPreview.src=o.photo||"",editPhotoPreview.style.display=o.photo?"block":"none",editItemPhotoInput.value="",editItemModal.style.display="flex") }
         function handleSaveChanges() { /* Full implementation here */ const e=editItemIdInput.value,t=appData.lists[appData.currentListId],o=t.items.findIndex(t=>t.id===e);if(-1!==o){const i=editItemNameInput.value.trim(),n=parseFloat(editItemPriceInput.value),d=parseInt(editItemQuantityInput.value,10);if(!i||isNaN(n)||isNaN(d))return void alert("Please fill out all fields correctly.");t.items[o].name=i,t.items[o].price=n,t.items[o].quantity=d,t.items[o].photo=editPhotoPreview.src,saveData(),renderUI(),editItemModal.style.display="none"}else alert("Error: Item not found to save changes.") }
         function handleItemDragEnd(e) { /* Full implementation here */ const{oldIndex:t,newIndex:o}=e,i=appData.lists[appData.currentListId];if(i){const[n]=i.items.splice(t,1);i.items.splice(o,0,n),saveData()} }
-        function handlePhotoPreview(e) { /* Full implementation here */ const t=e.target,o="edit-item-photo"===t.id?editPhotoPreview:photoPreview,i=t.files[0];i?((new FileReader).onload=e=>{o.src=e.target.result,o.style.display="block"},reader.readAsDataURL(i)):(o.src="",o.style.display="none")}
+        function handlePhotoPreview(e) {
+    const input = event.target;
+    // Determine which preview image to update based on the input's ID
+    const previewEl = input.id === 'edit-item-photo' ? editPhotoPreview : photoPreview;
+    const file = input.files[0];
+
+    if (file) {
+        const reader = new FileReader(); // This line was effectively broken before
+        reader.onload = (e) => {
+            previewEl.src = e.target.result;
+            previewEl.style.display = 'block';
+        };
+        reader.readAsDataURL(file); // This line was also broken
+    } else {
+        // If no file is selected (e.g., user cancels), clear the preview
+        previewEl.src = '';
+        previewEl.style.display = 'none';
+    }
+}
         function startScanner() { /* Full implementation here */ addItemForm.style.display="none",scannerContainer.style.display="block";const e={fps:10,qrbox:{width:250,height:150}},t=(e,t)=>{stopScanner(),fetchProductInfo(e)};html5QrCode.start({facingMode:"environment"},e,t,e=>{})}
         function stopScanner() { /* Full implementation here */ html5QrCode.stop().then(e=>{scannerContainer.style.display="none",addItemForm.style.display="block"}).catch(e=>{console.error("Error stopping scanner:",e),scannerContainer.style.display="none",addItemForm.style.display="block"})}
         async function fetchProductInfo(e) { /* Full implementation here */ alert(`Searching for product with barcode: ${e}...`);try{const t=await fetch(`https://world.openfoodfacts.org/api/v0/product/${e}.json`);if(!t.ok)throw new Error(`HTTP error! status: ${t.status}`);const o=await t.json();if(1===o.status&&o.product){const e=o.product;document.getElementById("item-name").value=e.product_name||e.generic_name||"Unknown Product";const t=e.image_front_url||e.image_url||"";t?(photoPreview.src=t,photoPreview.style.display="block"):(photoPreview.style.display="none",photoPreview.src=""),alert("Product found! Please enter price and quantity.")}else alert("Product not found in the Open Food Facts database."),document.getElementById("item-name").value="",photoPreview.style.display="none",photoPreview.src=""}catch(e){console.error("Error fetching product info:",e),alert("Failed to fetch product information. Please check your internet connection or try again manually."),document.getElementById("item-name").value="",photoPreview.style.display="none",photoPreview.src=""}}
