@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Shopping List V3 - Stage 1</title>
-    <!-- V3 Library Dependencies (placeholders for now) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Smart Shopping List V3 - Stage 2</title>
+    <!-- [V3 Stage 2] Add SortableJS library -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <style>
         :root {
             --primary-color: #8e44ad;
@@ -76,7 +76,13 @@
         #photo-preview { max-width: 100px; margin-top: 10px; border-radius: var(--border-radius); display: none; }
 
         #item-list { display: grid; gap: 15px; }
-        .item-card { background: var(--white); padding: 15px; border-radius: var(--border-radius); box-shadow: var(--shadow); display: flex; align-items: center; gap: 15px; position: relative; }
+        .item-card { background: var(--white); padding: 15px; border-radius: var(--border-radius); box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px; position: relative; }
+        /* [V3 Stage 2] Drag-and-Drop Styling */
+        .item-card .drag-handle { cursor: grab; font-size: 24px; color: #ccc; padding-right: 5px; }
+        .item-card .drag-handle:active { cursor: grabbing; }
+        .sortable-ghost { opacity: 0.4; background: #e0c8ee; }
+        .sortable-chosen { box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+
         .item-card img { width: 60px; height: 60px; border-radius: var(--border-radius); object-fit: cover; }
         .item-info { flex-grow: 1; }
         .item-info h3 { margin: 0; font-size: 18px; }
@@ -147,7 +153,6 @@
     <!-- MODALS -->
     <div id="new-list-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Create New List</h2><span class="close-btn">×</span></div><div class="modal-body"><input type="text" id="new-list-name" placeholder="e.g., Weekly Groceries"></div><div class="modal-footer"><button class="btn" id="create-list-btn" style="width:100%;">Create List</button></div></div></div>
 
-    <!-- [V3] Edit Item Modal -->
     <div id="edit-item-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h2>Edit Item</h2><span class="close-btn">×</span></div>
@@ -178,25 +183,20 @@
             groups: {},
             currentListId: null
         };
+        let sortableInstance = null; // [V3 Stage 2] To hold the Sortable instance
 
         // --- DOM Element Selection ---
         const listSelector = document.getElementById('list-selector');
         const currentListTitle = document.getElementById('current-list-title');
         const itemListEl = document.getElementById('item-list');
         const addItemForm = document.getElementById('add-item-form');
-
-        // Header Analytics
         const totalItemsEl = document.getElementById('total-items');
         const totalSpentEl = document.getElementById('total-spent');
         const avgPriceEl = document.getElementById('avg-price');
-        
-        // Modals & Buttons
         const newListModal = document.getElementById('new-list-modal');
         const newListBtn = document.getElementById('new-list-btn');
         const createListBtn = document.getElementById('create-list-btn');
         const deleteListBtn = document.getElementById('delete-list-btn');
-        
-        // [V3] Edit Item Modal Elements
         const editItemModal = document.getElementById('edit-item-modal');
         const saveItemChangesBtn = document.getElementById('save-item-changes-btn');
         const editItemIdInput = document.getElementById('edit-item-id');
@@ -205,7 +205,6 @@
         const editItemQuantityInput = document.getElementById('edit-item-quantity');
         const editItemPhotoInput = document.getElementById('edit-item-photo');
         const editPhotoPreview = document.getElementById('edit-photo-preview');
-
 
         // --- Data Functions ---
         function loadData() {
@@ -228,14 +227,7 @@
             loadData();
             if (Object.keys(appData.lists).length === 0) {
                 const firstListId = generateId();
-                appData.lists[firstListId] = {
-                    id: firstListId,
-                    name: "My First List",
-                    items: [],
-                    createdAt: new Date().toISOString(),
-                    groupId: null,
-                    budget: null
-                };
+                appData.lists[firstListId] = { id: firstListId, name: "My First List", items: [], createdAt: new Date().toISOString(), groupId: null, budget: null };
                 appData.currentListId = firstListId;
                 saveData();
             }
@@ -243,15 +235,18 @@
                  appData.currentListId = Object.keys(appData.lists)[0] || null;
             }
             setupEventListeners();
+            initializeSortable(); // [V3 Stage 2]
             renderUI();
         }
 
         // --- UI Rendering ---
         function renderUI() {
-            if (appData.currentListId) {
-                currentListTitle.textContent = appData.lists[appData.currentListId].name;
+            const currentList = appData.lists[appData.currentListId];
+            if (currentList) {
+                currentListTitle.textContent = currentList.name;
             } else {
                 currentListTitle.textContent = "No list selected";
+                itemListEl.innerHTML = '';
             }
             renderListSelector();
             renderItems();
@@ -260,14 +255,16 @@
 
         function renderListSelector() {
             listSelector.innerHTML = '';
-            Object.values(appData.lists).forEach(list => {
-                const option = document.createElement('option');
-                option.value = list.id;
-                option.textContent = list.name;
-                if (list.id === appData.currentListId) {
-                    option.selected = true;
-                }
-                listSelector.appendChild(option);
+            Object.values(appData.lists)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .forEach(list => {
+                    const option = document.createElement('option');
+                    option.value = list.id;
+                    option.textContent = list.name;
+                    if (list.id === appData.currentListId) {
+                        option.selected = true;
+                    }
+                    listSelector.appendChild(option);
             });
         }
         
@@ -283,6 +280,7 @@
                 
                 const quantityText = item.quantity > 1 ? ` (x${item.quantity})` : '';
                 itemCard.innerHTML = `
+                    <span class="drag-handle" title="Drag to reorder">⠿</span>
                     <img src="${item.photo || 'https://via.placeholder.com/60'}" alt="${item.name}">
                     <div class="item-info">
                         <h3>${item.name}${quantityText}</h3>
@@ -305,56 +303,54 @@
                 avgPriceEl.textContent = '$0.00';
                 return;
             }
-
             const items = currentList.items;
             const totalIndividualItems = items.reduce((sum, item) => sum + item.quantity, 0);
             const totalSpent = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
             const avgPrice = totalIndividualItems > 0 ? totalSpent / totalIndividualItems : 0;
-
             totalItemsEl.textContent = totalIndividualItems;
             totalSpentEl.textContent = `$${totalSpent.toFixed(2)}`;
             avgPriceEl.textContent = `$${avgPrice.toFixed(2)}`;
         }
 
-
-        // --- Event Listener Setup ---
+        // --- Event Listener & Initializer Setup ---
         function setupEventListeners() {
             listSelector.addEventListener('change', () => {
                 appData.currentListId = listSelector.value;
                 saveData();
                 renderUI();
             });
-
             addItemForm.addEventListener('submit', handleAddItem);
-            
-            // Modal Open/Close
-            newListBtn.addEventListener('click', () => newListModal.style.display = 'flex');
             document.querySelectorAll('.modal .close-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
             });
-            
+            newListBtn.addEventListener('click', () => newListModal.style.display = 'flex');
             createListBtn.addEventListener('click', handleCreateList);
             deleteListBtn.addEventListener('click', handleDeleteList);
-            
-            // Item actions (delegated)
             itemListEl.addEventListener('click', (e) => {
                 const deleteBtn = e.target.closest('.delete-item-btn');
                 const editBtn = e.target.closest('.edit-item-btn');
-                if (deleteBtn) {
-                    const itemCard = e.target.closest('.item-card');
-                    handleDeleteItem(itemCard.dataset.id);
-                }
-                if (editBtn) {
-                    const itemCard = e.target.closest('.item-card');
-                    openEditItemModal(itemCard.dataset.id);
-                }
+                if (deleteBtn) handleDeleteItem(e.target.closest('.item-card').dataset.id);
+                if (editBtn) openEditItemModal(e.target.closest('.item-card').dataset.id);
             });
-            
-            // [V3] Edit Item Listeners
             saveItemChangesBtn.addEventListener('click', handleSaveChanges);
             editItemPhotoInput.addEventListener('change', handlePhotoPreview);
+            document.getElementById('item-photo').addEventListener('change', handlePhotoPreview);
         }
         
+        // [V3 Stage 2] Initialize SortableJS
+        function initializeSortable() {
+            if (sortableInstance) {
+                sortableInstance.destroy();
+            }
+            sortableInstance = new Sortable(itemListEl, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                onEnd: handleItemDragEnd,
+            });
+        }
+
         // --- Event Handlers ---
         function handleAddItem(e) {
             e.preventDefault();
@@ -363,37 +359,23 @@
             const itemPrice = parseFloat(form.querySelector('#item-price').value);
             const itemQuantity = parseInt(form.querySelector('#item-quantity').value, 10);
             const photoPreview = form.querySelector('#photo-preview');
-            
             if (!itemName || isNaN(itemPrice) || isNaN(itemQuantity) || !appData.currentListId) {
                 alert("Please fill out all fields correctly.");
                 return;
             }
-            
-            const newItem = {
-                id: generateId(),
-                name: itemName,
-                price: itemPrice,
-                quantity: itemQuantity,
-                photo: photoPreview.src,
-                createdAt: new Date().toISOString()
-            };
-            
+            const newItem = { id: generateId(), name: itemName, price: itemPrice, quantity: itemQuantity, photo: photoPreview.src, createdAt: new Date().toISOString() };
             appData.lists[appData.currentListId].items.push(newItem);
             saveData();
             renderUI();
             form.reset();
-            photoPreview.style.display = 'none';
-            photoPreview.src = '';
+            photoPreview.style.display = 'none'; photoPreview.src = '';
         }
         
         function handleCreateList() {
             const listName = document.getElementById('new-list-name').value.trim();
             if (!listName) return;
-            
             const listId = generateId();
-            appData.lists[listId] = {
-                id: listId, name: listName, items: [], createdAt: new Date().toISOString(), groupId: null, budget: null
-            };
+            appData.lists[listId] = { id: listId, name: listName, items: [], createdAt: new Date().toISOString(), groupId: null, budget: null };
             appData.currentListId = listId;
             saveData();
             renderUI();
@@ -419,20 +401,17 @@
             renderUI();
         }
 
-        // [V3] Edit Item Functions
         function openEditItemModal(itemId) {
             const list = appData.lists[appData.currentListId];
             const item = list.items.find(i => i.id === itemId);
             if (!item) return;
-
             editItemIdInput.value = item.id;
             editItemNameInput.value = item.name;
             editItemPriceInput.value = item.price;
             editItemQuantityInput.value = item.quantity;
             editPhotoPreview.src = item.photo || '';
             editPhotoPreview.style.display = item.photo ? 'block' : 'none';
-            editItemPhotoInput.value = ''; // Clear file input
-            
+            editItemPhotoInput.value = '';
             editItemModal.style.display = 'flex';
         }
         
@@ -441,33 +420,40 @@
             const list = appData.lists[appData.currentListId];
             const itemIndex = list.items.findIndex(i => i.id === itemId);
             if (itemIndex === -1) return;
-            
             const updatedName = editItemNameInput.value.trim();
             const updatedPrice = parseFloat(editItemPriceInput.value);
             const updatedQuantity = parseInt(editItemQuantityInput.value, 10);
-            
             if (!updatedName || isNaN(updatedPrice) || isNaN(updatedQuantity)) {
                 alert("Please fill out all fields correctly.");
                 return;
             }
-            
             list.items[itemIndex].name = updatedName;
             list.items[itemIndex].price = updatedPrice;
             list.items[itemIndex].quantity = updatedQuantity;
-            
             if (editPhotoPreview.src !== list.items[itemIndex].photo) {
                 list.items[itemIndex].photo = editPhotoPreview.src;
             }
-
             saveData();
             renderUI();
             editItemModal.style.display = 'none';
         }
+        
+        // [V3 Stage 2] Handle the end of a drag event
+        function handleItemDragEnd(evt) {
+            const { oldIndex, newIndex } = evt;
+            const list = appData.lists[appData.currentListId];
+            if (!list) return;
 
-        // Generic Photo Preview Handler
+            // Reorder the array
+            const [movedItem] = list.items.splice(oldIndex, 1);
+            list.items.splice(newIndex, 0, movedItem);
+
+            saveData();
+            // No re-render needed, SortableJS updates the DOM
+        }
+
         function handlePhotoPreview(event) {
             const input = event.target;
-            // Determine which preview image to update based on the input's ID
             const previewEl = input.id.includes('edit') ? document.getElementById('edit-photo-preview') : document.getElementById('photo-preview');
             const file = input.files[0];
             if (file) {
@@ -479,9 +465,7 @@
                 reader.readAsDataURL(file);
             }
         }
-        document.getElementById('item-photo').addEventListener('change', handlePhotoPreview);
-
-
+        
         // --- Start the App ---
         initialize();
     });
