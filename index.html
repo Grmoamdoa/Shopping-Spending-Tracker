@@ -154,7 +154,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         // --- App State ---
         let appData = { lists: {}, groups: {}, currentListId: null };
-        let currentAnalyticsFilter = { type: 'all', ids: [] }; // [V3] Default filter
+        let currentAnalyticsFilter = { type: 'all', ids: [] }; // Default filter
         let sortableInstance = null, html5QrCode = null, analyticsChart = null;
 
         // --- DOM Elements ---
@@ -303,23 +303,242 @@
         function initializeSortable() { if (sortableInstance) sortableInstance.destroy(); sortableInstance = new Sortable(itemListEl, { handle: '.drag-handle', animation: 150, ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', onEnd: handleItemDragEnd }); }
         
         // --- Full Event Handler Implementations ---
-        function handleAddItem(e){e.preventDefault();const t=e.target,o=t.querySelector("#item-name").value.trim(),l=parseFloat(t.querySelector("#item-price").value),i=parseInt(t.querySelector("#item-quantity").value,10),n=t.querySelector("#photo-preview");if(!o||isNaN(l)||isNaN(i)||!appData.currentListId)return void alert("Please fill out all fields correctly.");const a={id:generateId(),name:o,price:l,quantity:i,photo:n.src,createdAt:(new Date).toISOString()};appData.lists[appData.currentListId].items.push(a),saveData(),renderUI(),t.reset(),n.style.display="none",n.src=""}
-        function handleCreateList(){const e=document.getElementById("new-list-name"),t=e.value.trim();if(t){if(Object.values(appData.lists).some(e=>e.name===t))return void alert("A list with this name already exists.");const o=generateId();appData.lists[o]={id:o,name:t,items:[],createdAt:(new Date).toISOString(),groupId:null},appData.currentListId=o,saveData(),renderUI(),newListModal.style.display="none",e.value=""}}
-        function handleDeleteList(){if(!appData.currentListId)return;const e=appData.lists[appData.currentListId].name;confirm(`Are you sure you want to delete the list "${e}"?`)&&(delete appData.lists[appData.currentListId],appData.currentListId=Object.keys(appData.lists)[0]||null,saveData(),renderUI())}
-        function handleDeleteItem(e){const t=appData.lists[appData.currentListId];t&&(t.items=t.items.filter(t=>t.id!==e),saveData(),renderUI())}
-        function openEditItemModal(e){const t=appData.lists[appData.currentListId].items.find(t=>t.id===e);if(!t)return;document.getElementById("edit-item-id").value=t.id,document.getElementById("edit-item-name").value=t.name,document.getElementById("edit-item-price").value=t.price,document.getElementById("edit-item-quantity").value=t.quantity;const o=document.getElementById("edit-photo-preview");o.src=t.photo||"",o.style.display=t.photo?"block":"none",document.getElementById("edit-item-photo").value="",editItemModal.style.display="flex"}
-        function handleSaveChanges(){const e=document.getElementById("edit-item-id").value,t=appData.lists[appData.currentListId],o=t.items.findIndex(t=>t.id===e);if(-1===o)return;const l=document.getElementById("edit-item-name").value.trim(),i=parseFloat(document.getElementById("edit-item-price").value),n=parseInt(document.getElementById("edit-item-quantity").value,10);if(!l||isNaN(i)||isNaN(n))return void alert("Please fill out all fields correctly.");t.items[o].name=l,t.items[o].price=i,t.items[o].quantity=n,t.items[o].photo=document.getElementById("edit-photo-preview").src,saveData(),renderUI(),editItemModal.style.display="none"}
-        function handleItemDragEnd(e){const{oldIndex:t,newIndex:o}=e,l=appData.lists[appData.currentListId];if(!l)return;const[i]=l.items.splice(t,1);l.items.splice(o,0,i),saveData()}
-        function handlePhotoPreview(e){const t=e.target,o="edit-item-photo"===t.id?document.getElementById("edit-photo-preview"):document.getElementById("photo-preview"),l=t.files[0];if(l){const e=new FileReader;e.onload=t=>{o.src=t.target.result,o.style.display="block"},e.readAsDataURL(l)}else o.src="",o.style.display="none"}
-        function startScanner(){addItemForm.style.display="none",scannerContainer.style.display="block";const e={fps:10,qrbox:{width:250,height:150}},t=(e,t)=>{stopScanner(),fetchProductInfo(e)};html5QrCode.start({facingMode:"environment"},e,t,e=>{}).catch(e=>{alert("Could not start scanner."),stopScanner()})}
-        function stopScanner(){html5QrCode.stop().then(e=>{scannerContainer.style.display="none",addItemForm.style.display="block"}).catch(e=>{scannerContainer.style.display="none",addItemForm.style.display="block"})}
-        async function fetchProductInfo(e){alert(`Searching for barcode: ${e}...`);try{const t=await fetch(`https://world.openfoodfacts.org/api/v0/product/${e}.json`);if(!t.ok)throw new Error(`HTTP error! status: ${t.status}`);const o=await t.json();if(1===o.status&&o.product){const e=o.product;document.getElementById("item-name").value=e.product_name||e.generic_name||"Unknown Product";const t=document.getElementById("photo-preview"),l=e.image_front_url||e.image_url||"";l?(t.src=l,t.style.display="block"):(t.style.display="none",t.src=""),alert("Product found!")}else alert("Product not found.")}catch(e){alert("Failed to fetch product information.")}}
-        function openGroupManager(){renderGroupManager(),manageGroupsModal.style.display="flex"}
-        function renderGroupManager(){const e=document.getElementById("list-group-assignments");e.innerHTML="",Object.values(appData.lists).sort((e,t)=>e.name.localeCompare(t.name)).forEach(t=>{const o=document.createElement("li");o.className="management-item";const l=document.createElement("select");l.dataset.listId=t.id;const i=document.createElement("option");i.value="null",i.textContent="Ungrouped",l.appendChild(i),Object.values(appData.groups).sort((e,t)=>e.name.localeCompare(t.name)).forEach(e=>{const o=document.createElement("option");o.value=e.id,o.textContent=e.name,t.groupId===e.id&&(o.selected=!0),l.appendChild(o)}),o.innerHTML=`<span class="name">${t.name}</span>`,o.appendChild(l),e.appendChild(o)})}
-        function handleCreateGroup(){const e=document.getElementById("new-group-name"),t=e.value.trim();if(!t)return void alert("Group name cannot be empty.");if(Object.values(appData.groups).some(e=>e.name===t))return void alert("A group with this name already exists.");const o=generateId();appData.groups[o]={id:o,name:t},saveData(),renderGroupManager(),e.value=""}
-        function handleAssignListToGroup(e){const t=e.target,o=t.dataset.listId,l="null"===t.value?null:t.value;appData.lists[o]&&(appData.lists[o].groupId=l,saveData(),renderListSelector())}
-        
-        // [V3] Analytics Functions
+        function handleAddItem(e) {
+            e.preventDefault();
+            const form = e.target;
+            const itemName = form.querySelector("#item-name").value.trim();
+            const itemPrice = parseFloat(form.querySelector("#item-price").value);
+            const itemQuantity = parseInt(form.querySelector("#item-quantity").value, 10);
+            const photoPreview = form.querySelector("#photo-preview");
+            if (!itemName || isNaN(itemPrice) || isNaN(itemQuantity) || !appData.currentListId) {
+                alert("Please fill out all fields correctly.");
+                return;
+            }
+            const newItem = {
+                id: generateId(),
+                name: itemName,
+                price: itemPrice,
+                quantity: itemQuantity,
+                photo: photoPreview.src,
+                createdAt: new Date().toISOString()
+            };
+            appData.lists[appData.currentListId].items.push(newItem);
+            saveData();
+            renderUI();
+            form.reset();
+            photoPreview.style.display = "none";
+            photoPreview.src = "";
+        }
+
+        function handleCreateList() {
+            const listNameInput = document.getElementById("new-list-name");
+            const listName = listNameInput.value.trim();
+            if (listName) {
+                if (Object.values(appData.lists).some(list => list.name === listName)) {
+                    alert("A list with this name already exists.");
+                    return;
+                }
+                const listId = generateId();
+                appData.lists[listId] = {
+                    id: listId,
+                    name: listName,
+                    items: [],
+                    createdAt: new Date().toISOString(),
+                    groupId: null
+                };
+                appData.currentListId = listId;
+                saveData();
+                renderUI();
+                newListModal.style.display = "none";
+                listNameInput.value = "";
+            }
+        }
+
+        function handleDeleteList() {
+            if (!appData.currentListId) return;
+            const listName = appData.lists[appData.currentListId].name;
+            if (confirm(`Are you sure you want to delete the list "${listName}"?`)) {
+                delete appData.lists[appData.currentListId];
+                appData.currentListId = Object.keys(appData.lists)[0] || null;
+                saveData();
+                renderUI();
+            }
+        }
+
+        function handleDeleteItem(itemId) {
+            const list = appData.lists[appData.currentListId];
+            if (list) {
+                list.items = list.items.filter(item => item.id !== itemId);
+                saveData();
+                renderUI();
+            }
+        }
+
+        function openEditItemModal(itemId) {
+            const item = appData.lists[appData.currentListId].items.find(item => item.id === itemId);
+            if (!item) return;
+            document.getElementById("edit-item-id").value = item.id;
+            document.getElementById("edit-item-name").value = item.name;
+            document.getElementById("edit-item-price").value = item.price;
+            document.getElementById("edit-item-quantity").value = item.quantity;
+            const photoPreview = document.getElementById("edit-photo-preview");
+            photoPreview.src = item.photo || "";
+            photoPreview.style.display = item.photo ? "block" : "none";
+            document.getElementById("edit-item-photo").value = "";
+            editItemModal.style.display = "flex";
+        }
+
+        function handleSaveChanges() {
+            const itemId = document.getElementById("edit-item-id").value;
+            const list = appData.lists[appData.currentListId];
+            const itemIndex = list.items.findIndex(item => item.id === itemId);
+            if (itemIndex === -1) return;
+            const itemName = document.getElementById("edit-item-name").value.trim();
+            const itemPrice = parseFloat(document.getElementById("edit-item-price").value);
+            const itemQuantity = parseInt(document.getElementById("edit-item-quantity").value, 10);
+            if (!itemName || isNaN(itemPrice) || isNaN(itemQuantity)) {
+                alert("Please fill out all fields correctly.");
+                return;
+            }
+            list.items[itemIndex].name = itemName;
+            list.items[itemIndex].price = itemPrice;
+            list.items[itemIndex].quantity = itemQuantity;
+            list.items[itemIndex].photo = document.getElementById("edit-photo-preview").src;
+            saveData();
+            renderUI();
+            editItemModal.style.display = "none";
+        }
+
+        function handleItemDragEnd(evt) {
+            const { oldIndex, newIndex } = evt;
+            const list = appData.lists[appData.currentListId];
+            if (!list) return;
+            const [movedItem] = list.items.splice(oldIndex, 1);
+            list.items.splice(newIndex, 0, movedItem);
+            saveData();
+        }
+
+        function handlePhotoPreview(event) {
+            const input = event.target;
+            const previewEl = input.id === "edit-item-photo" ? document.getElementById("edit-photo-preview") : document.getElementById("photo-preview");
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    previewEl.src = e.target.result;
+                    previewEl.style.display = "block";
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewEl.src = "";
+                previewEl.style.display = "none";
+            }
+        }
+
+        function startScanner() {
+            addItemForm.style.display = "none";
+            scannerContainer.style.display = "block";
+            const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+            const onScanSuccess = (decodedText, decodedResult) => {
+                stopScanner();
+                fetchProductInfo(decodedText);
+            };
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, (error) => {}).catch(err => {
+                alert("Could not start scanner.");
+                stopScanner();
+            });
+        }
+
+        function stopScanner() {
+            html5QrCode.stop().then(ignore => {
+                scannerContainer.style.display = "none";
+                addItemForm.style.display = "block";
+            }).catch(err => {
+                scannerContainer.style.display = "none";
+                addItemForm.style.display = "block";
+            });
+        }
+
+        async function fetchProductInfo(barcode) {
+            alert(`Searching for barcode: ${barcode}...`);
+            try {
+                const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                if (data.status === 1 && data.product) {
+                    const product = data.product;
+                    document.getElementById("item-name").value = product.product_name || product.generic_name || "Unknown Product";
+                    const photoPreview = document.getElementById("photo-preview");
+                    const imageUrl = product.image_front_url || product.image_url || "";
+                    if (imageUrl) {
+                        photoPreview.src = imageUrl;
+                        photoPreview.style.display = "block";
+                    } else {
+                        photoPreview.style.display = "none";
+                        photoPreview.src = "";
+                    }
+                    alert("Product found!");
+                } else {
+                    alert("Product not found.");
+                }
+            } catch (error) {
+                alert("Failed to fetch product information.");
+            }
+        }
+
+        function openGroupManager() {
+            renderGroupManager();
+            manageGroupsModal.style.display = "flex";
+        }
+
+        function renderGroupManager() {
+            const listGroupAssignmentsEl = document.getElementById("list-group-assignments");
+            listGroupAssignmentsEl.innerHTML = "";
+            Object.values(appData.lists).sort((a, b) => a.name.localeCompare(b.name)).forEach(list => {
+                const li = document.createElement("li");
+                li.className = "management-item";
+                const select = document.createElement("select");
+                select.dataset.listId = list.id;
+                const defaultOption = document.createElement("option");
+                defaultOption.value = "null";
+                defaultOption.textContent = "Ungrouped";
+                select.appendChild(defaultOption);
+                Object.values(appData.groups).sort((a, b) => a.name.localeCompare(b.name)).forEach(group => {
+                    const option = document.createElement("option");
+                    option.value = group.id;
+                    option.textContent = group.name;
+                    if (list.groupId === group.id) option.selected = true;
+                    select.appendChild(option);
+                });
+                li.innerHTML = `<span class="name">${list.name}</span>`;
+                li.appendChild(select);
+                listGroupAssignmentsEl.appendChild(li);
+            });
+        }
+
+        function handleCreateGroup() {
+            const newGroupNameInput = document.getElementById("new-group-name");
+            const groupName = newGroupNameInput.value.trim();
+            if (!groupName) return alert("Group name cannot be empty.");
+            if (Object.values(appData.groups).some(g => g.name === groupName)) return alert("A group with this name already exists.");
+            const groupId = generateId();
+            appData.groups[groupId] = { id: groupId, name: groupName };
+            saveData();
+            renderGroupManager();
+            newGroupNameInput.value = "";
+        }
+
+        function handleAssignListToGroup(event) {
+            const selectEl = event.target;
+            const listId = selectEl.dataset.listId;
+            const groupId = selectEl.value === "null" ? null : selectEl.value;
+            if (appData.lists[listId]) {
+                appData.lists[listId].groupId = groupId;
+                saveData();
+                renderListSelector();
+            }
+        }
+
         function getFilteredLists() {
             if (currentAnalyticsFilter.type === 'all') return Object.values(appData.lists);
             let listIds = new Set();
@@ -331,11 +550,11 @@
             }
             return Array.from(listIds).map(id => appData.lists[id]);
         }
-        
+
         function openGlobalAnalytics() {
             const listsToAnalyze = getFilteredLists();
             const contentEl = document.getElementById('global-analytics-content');
-            const chartContainer = document.querySelector('.chart-container');
+            const chartContainer = globalAnalyticsModal.querySelector('.chart-container');
             if (analyticsChart) analyticsChart.destroy();
             
             if (listsToAnalyze.length === 0) {
@@ -367,59 +586,45 @@
             globalAnalyticsModal.style.display = 'flex';
         }
 
+        // [V3 FINAL - CORRECTED]
         function openAnalyticsFilterModal() {
             const filterOptionsList = document.getElementById('filter-options-list');
-            filterOptionsList.innerHTML = ''; // Clear previous options
+            filterOptionsList.innerHTML = '';
         
-            // Helper function to create a filter item robustly
             const createFilterItem = (type, item) => {
                 const div = document.createElement('div');
                 div.className = 'filter-item';
-        
                 const label = document.createElement('label');
-        
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.className = 'filter-checkbox';
                 checkbox.dataset.type = type;
                 checkbox.value = item.id;
                 
-                // Check if this item should be pre-checked based on the current filter
                 if (currentAnalyticsFilter.type === 'custom') {
-                    const ids = currentAnalyticsFilter.ids[type + 's']; // e.g., currentAnalyticsFilter.ids.groups
-                    if (ids && ids.includes(item.id)) {
-                        checkbox.checked = true;
-                    }
+                    const ids = currentAnalyticsFilter.ids[type + 's'];
+                    if (ids && ids.includes(item.id)) checkbox.checked = true;
                 }
         
                 label.appendChild(checkbox);
-                // Explicitly create and append a text node for the name
-                label.appendChild(document.createTextNode(` ${item.name}`)); 
-        
+                label.appendChild(document.createTextNode(` ${item.name}`));
                 div.appendChild(label);
                 return div;
             };
         
-            // Create and append Groups header, if there are groups
             if (Object.keys(appData.groups).length > 0) {
                 const groupsHeader = document.createElement('div');
                 groupsHeader.className = 'filter-group-header';
                 groupsHeader.textContent = 'Groups';
                 filterOptionsList.appendChild(groupsHeader);
-                Object.values(appData.groups).forEach(group => {
-                    filterOptionsList.appendChild(createFilterItem('group', group));
-                });
+                Object.values(appData.groups).forEach(group => filterOptionsList.appendChild(createFilterItem('group', group)));
             }
         
-            // Create and append Lists header
             const listsHeader = document.createElement('div');
             listsHeader.className = 'filter-group-header';
             listsHeader.textContent = 'Individual Lists';
             filterOptionsList.appendChild(listsHeader);
-        
-            Object.values(appData.lists).forEach(list => {
-                filterOptionsList.appendChild(createFilterItem('list', list));
-            });
+            Object.values(appData.lists).forEach(list => filterOptionsList.appendChild(createFilterItem('list', list)));
         
             analyticsFilterModal.style.display = 'flex';
         }
@@ -428,35 +633,37 @@
             const selectedGroups = [];
             const selectedLists = [];
             document.querySelectorAll('.filter-checkbox:checked').forEach(checkbox => {
-                if (checkbox.dataset.type === 'group') {
-                    selectedGroups.push(checkbox.value);
-                } else {
-                    selectedLists.push(checkbox.value);
-                }
+                if (checkbox.dataset.type === 'group') selectedGroups.push(checkbox.value);
+                else selectedLists.push(checkbox.value);
             });
             
             if (selectedGroups.length === 0 && selectedLists.length === 0) {
-                currentAnalyticsFilter = { type: 'all', ids: [] }; // Revert to all if nothing selected
+                currentAnalyticsFilter = { type: 'all', ids: [] };
             } else {
                 currentAnalyticsFilter = { type: 'custom', ids: { groups: selectedGroups, lists: selectedLists } };
             }
             analyticsFilterModal.style.display = 'none';
-            openGlobalAnalytics(); // Refresh analytics view with new filter
+            openGlobalAnalytics();
         }
 
-        function downloadFile(filename, content, contentType) { const a = document.createElement('a'); const file = new Blob([content], {type: contentType}); a.href = URL.createObjectURL(file); a.download = filename; a.click(); URL.revokeObjectURL(a.href); }
+        function downloadFile(filename, content, contentType) {
+            const a = document.createElement('a');
+            const file = new Blob([content], {type: contentType});
+            a.href = URL.createObjectURL(file);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
         
         function handleExportView(format) {
             const listsToExport = getFilteredLists();
-            if (listsToExport.length === 0) { alert("No lists selected in the filter to export."); return; }
+            if (listsToExport.length === 0) return alert("No lists selected in the filter to export.");
             
             if (format === 'json') {
                 const exportData = { lists: {}, groups: {} };
                 listsToExport.forEach(list => {
                     exportData.lists[list.id] = list;
-                    if (list.groupId && appData.groups[list.groupId]) {
-                        exportData.groups[list.groupId] = appData.groups[list.groupId];
-                    }
+                    if (list.groupId && appData.groups[list.groupId]) exportData.groups[list.groupId] = appData.groups[list.groupId];
                 });
                 downloadFile('SmartShop_Export.json', JSON.stringify(exportData, null, 2), 'application/json');
             } else if (format === 'csv') {
@@ -485,28 +692,21 @@
                     const importedData = JSON.parse(e.target.result);
                     if (!importedData.lists) throw new Error("Invalid backup file.");
 
-                    // Merge groups
                     if(importedData.groups) {
                         Object.values(importedData.groups).forEach(importedGroup => {
                             let groupName = importedGroup.name;
                             let nameCounter = 1;
-                            while(Object.values(appData.groups).some(g => g.name === groupName)) {
-                                groupName = `${importedGroup.name} (Imported ${nameCounter++})`;
-                            }
+                            while(Object.values(appData.groups).some(g => g.name === groupName)) groupName = `${importedGroup.name} (Imported ${nameCounter++})`;
                             const newGroupId = generateId();
                             appData.groups[newGroupId] = { id: newGroupId, name: groupName };
-                            // Update list groupId references
                             Object.values(importedData.lists).forEach(l => { if (l.groupId === importedGroup.id) l.groupId = newGroupId; });
                         });
                     }
                     
-                    // Merge lists
                     Object.values(importedData.lists).forEach(importedList => {
                         let listName = importedList.name;
                         let nameCounter = 1;
-                        while(Object.values(appData.lists).some(l => l.name === listName)) {
-                            listName = `${importedList.name} (Imported ${nameCounter++})`;
-                        }
+                        while(Object.values(appData.lists).some(l => l.name === listName)) listName = `${importedList.name} (Imported ${nameCounter++})`;
                         const newListId = generateId();
                         appData.lists[newListId] = { ...importedList, id: newListId, name: listName };
                     });
@@ -516,9 +716,8 @@
                     alert("Data imported successfully!");
                 } catch (err) {
                     alert("Import failed. The file is either corrupted or not a valid backup file.");
-                    console.error("Import error:", err);
                 } finally {
-                    event.target.value = ''; // Reset file input
+                    event.target.value = '';
                 }
             };
             reader.readAsText(file);
