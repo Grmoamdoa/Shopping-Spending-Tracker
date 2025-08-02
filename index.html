@@ -371,12 +371,19 @@
                 checkbox.value = item.id;
                 
                 if (currentAnalyticsFilter.type === 'custom') {
-                    const ids = currentAnalyticsFilter.ids[type + 's']; // e.g., currentAnalyticsFilter.ids.groups
+                    const ids = currentAnalyticsFilter.ids[type + 's'];
                     if (ids && ids.includes(item.id)) checkbox.checked = true;
                 }
         
+                // --- FIX APPLIED HERE ---
+                // Original problematic line was:
+                // label.appendChild(document.createTextNode(` ${item.name}`));
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = item.name;
+
                 label.appendChild(checkbox);
-                label.appendChild(document.createTextNode(` ${item.name}`));
+                label.appendChild(nameSpan); // Appending the <span> instead of a text node
                 div.appendChild(label);
                 return div;
             };
