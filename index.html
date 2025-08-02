@@ -109,6 +109,7 @@
         .management-item .name { font-weight: bold; }
         .management-item select { margin-bottom: 0; }
         .filter-item label { display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; background: var(--white); border-radius: 8px; margin-bottom: 8px; }
+        .filter-item label span { flex-grow: 1; }
         .filter-group-header { font-weight: bold; margin-top: 15px; padding-bottom: 5px; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
     </style>
 </head>
@@ -364,24 +365,29 @@
             const createFilterItem = (type, item) => {
                 const div = document.createElement('div');
                 div.className = 'filter-item';
-                const label = document.createElement('label');
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.className = 'filter-checkbox';
-                checkbox.dataset.type = type;
-                checkbox.value = item.id;
-                
-                if (currentAnalyticsFilter.type === 'custom') {
-                    const ids = currentAnalyticsFilter.ids[type + 's']; // e.g., currentAnalyticsFilter.ids.groups
-                    if (ids && ids.includes(item.id)) checkbox.checked = true;
-                }
-        
-                const nameSpan = document.createElement('span');
-                nameSpan.textContent = item.name;
 
-                label.appendChild(checkbox);
-                label.appendChild(nameSpan);
-                div.appendChild(label);
+                let isChecked = false;
+                if (currentAnalyticsFilter.type === 'custom') {
+                    const ids = currentAnalyticsFilter.ids[type + 's'];
+                    if (ids && ids.includes(item.id)) {
+                        isChecked = true;
+                    }
+                }
+                
+                const sanitizedName = item.name.replace(/</g, "<").replace(/>/g, ">");
+
+                div.innerHTML = `
+                    <label>
+                        <input 
+                            type="checkbox" 
+                            class="filter-checkbox" 
+                            data-type="${type}" 
+                            value="${item.id}"
+                            ${isChecked ? 'checked' : ''}
+                        >
+                        <span>${sanitizedName}</span>
+                    </label>
+                `;
                 return div;
             };
         
@@ -405,9 +411,13 @@
         function handleApplyFilter() {
             const selectedGroups = [];
             const selectedLists = [];
-            document.querySelectorAll('.filter-checkbox:checked').forEach(checkbox => {
-                if (checkbox.dataset.type === 'group') selectedGroups.push(checkbox.value);
-                else selectedLists.push(checkbox.value);
+            // Query inside the modal for checkboxes
+            document.querySelectorAll('#analytics-filter-modal .filter-checkbox:checked').forEach(checkbox => {
+                if (checkbox.dataset.type === 'group') {
+                    selectedGroups.push(checkbox.value);
+                } else {
+                    selectedLists.push(checkbox.value);
+                }
             });
             
             if (selectedGroups.length === 0 && selectedLists.length === 0) {
@@ -481,7 +491,8 @@
                         let nameCounter = 1;
                         while(Object.values(appData.lists).some(l => l.name === listName)) listName = `${importedList.name} (Imported ${nameCounter++})`;
                         const newListId = generateId();
-                        appData.lists[newListId] = { ...importedList, id: newListId, name: listName };
+                        const originalList = importedData.lists[importedList.id] || importedList;
+                        appData.lists[newListId] = { ...originalList, id: newListId, name: listName };
                     });
 
                     saveData();
@@ -502,4 +513,4 @@
     });
     </script>
 </body>
-</html>```
+</html>
