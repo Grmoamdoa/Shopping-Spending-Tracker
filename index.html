@@ -367,24 +367,62 @@
             globalAnalyticsModal.style.display = 'flex';
         }
 
-        function openAnalyticsFilterModal() {
-            const filterOptionsList = document.getElementById('filter-options-list');
-            filterOptionsList.innerHTML = ''; // Clear previous options
-            
-            let content = '<div class="filter-group-header">Groups</div>';
-            Object.values(appData.groups).forEach(group => {
-                const isChecked = currentAnalyticsFilter.type !== 'all' && currentAnalyticsFilter.ids.groups.includes(group.id);
-                content += `<div class="filter-item"><label><input type="checkbox" class="filter-checkbox" data-type="group" value="${group.id}" ${isChecked ? 'checked' : ''}> ${group.name}</label></div>`;
-            });
+function openAnalyticsFilterModal() {
+    const filterOptionsList = document.getElementById('filter-options-list');
+    filterOptionsList.innerHTML = ''; // Clear previous options
 
-            content += '<div class="filter-group-header">Individual Lists</div>';
-            Object.values(appData.lists).forEach(list => {
-                const isChecked = currentAnalyticsFilter.type !== 'all' && currentAnalyticsFilter.ids.lists.includes(list.id);
-                content += `<div class="filter-item"><label><input type="checkbox" class="filter-checkbox" data-type="list" value="${list.id}" ${isChecked ? 'checked' : ''}> ${list.name}</label></div>`;
-            });
-            filterOptionsList.innerHTML = content;
-            analyticsFilterModal.style.display = 'flex';
+    // Helper function to create a filter item robustly
+    const createFilterItem = (type, item) => {
+        const div = document.createElement('div');
+        div.className = 'filter-item';
+
+        const label = document.createElement('label');
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'filter-checkbox';
+        checkbox.dataset.type = type;
+        checkbox.value = item.id;
+        
+        // Check if this item should be pre-checked based on the current filter
+        if (currentAnalyticsFilter.type === 'custom') {
+            const ids = currentAnalyticsFilter.ids[type + 's']; // e.g., currentAnalyticsFilter.ids.groups
+            if (ids && ids.includes(item.id)) {
+                checkbox.checked = true;
+            }
         }
+
+        label.appendChild(checkbox);
+        // Explicitly create and append a text node for the name
+        label.appendChild(document.createTextNode(` ${item.name}`)); 
+
+        div.appendChild(label);
+        return div;
+    };
+
+    // Create and append Groups header, if there are groups
+    if (Object.keys(appData.groups).length > 0) {
+        const groupsHeader = document.createElement('div');
+        groupsHeader.className = 'filter-group-header';
+        groupsHeader.textContent = 'Groups';
+        filterOptionsList.appendChild(groupsHeader);
+        Object.values(appData.groups).forEach(group => {
+            filterOptionsList.appendChild(createFilterItem('group', group));
+        });
+    }
+
+    // Create and append Lists header
+    const listsHeader = document.createElement('div');
+    listsHeader.className = 'filter-group-header';
+    listsHeader.textContent = 'Individual Lists';
+    filterOptionsList.appendChild(listsHeader);
+
+    Object.values(appData.lists).forEach(list => {
+        filterOptionsList.appendChild(createFilterItem('list', list));
+    });
+
+    analyticsFilterModal.style.display = 'flex';
+}
         
         function handleApplyFilter() {
             const selectedGroups = [];
