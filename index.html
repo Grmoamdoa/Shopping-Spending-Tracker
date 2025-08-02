@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Shopping List V3 - Stage 4</title>
+    <title>Smart Shopping List V3</title>
     <!-- V3 Library Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
     <style>
@@ -99,13 +100,16 @@
         .modal-header h2 { margin: 0; }
         .close-btn { font-size: 28px; font-weight: bold; cursor: pointer; }
         .modal-content input, .modal-content select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: var(--border-radius); box-sizing: border-box; margin-bottom: 15px; }
-        .modal-footer { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px; display:flex; gap: 10px; }
+        .modal-footer { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px; display:flex; gap: 10px; flex-wrap: wrap; }
         
-        /* [V3 Stage 4] Group Management Styles */
-        .management-list { list-style: none; padding: 0; margin: 0; }
+        .chart-container { position: relative; height: 220px; width: 100%; margin-bottom: 20px; }
+        
+        .management-list, .filter-list { list-style: none; padding: 0; margin: 0; }
         .management-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; background: var(--white); border-radius: var(--border-radius); margin-bottom: 10px; }
         .management-item .name { font-weight: bold; }
         .management-item select { margin-bottom: 0; }
+        .filter-item label { display: flex; align-items: center; gap: 10px; padding: 8px; cursor: pointer; background: var(--white); border-radius: 8px; margin-bottom: 5px; }
+        .filter-group-header { font-weight: bold; margin-top: 15px; padding-bottom: 5px; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -131,22 +135,8 @@
         </div>
 
         <main>
-            <div id="barcode-scanner-container">
-                <div id="barcode-reader"></div>
-                <button class="btn btn-danger" style="width: 100%; margin-top: 10px;" id="close-scanner-btn">Close Scanner</button>
-            </div>
-            <form class="add-item-form" id="add-item-form">
-                <div class="form-row">
-                    <div class="form-group" style="flex-grow: 4;"><label for="item-name">Item Name</label><input type="text" id="item-name" required></div>
-                    <div class="form-group"><label> </label><button type="button" class="btn icon-btn" id="scan-barcode-btn" title="Scan Barcode">📷</button></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group"><label for="item-price">Price</label><input type="number" id="item-price" step="0.01" min="0" required></div>
-                    <div class="form-group"><label for="item-quantity">Quantity</label><input type="number" id="item-quantity" value="1" min="1" required></div>
-                </div>
-                <div class="form-group"><label for="item-photo">Price Tag Photo (Optional)</label><input type="file" id="item-photo" accept="image/*"><img id="photo-preview" src="" alt="Photo Preview"></div>
-                <button type="submit" class="btn" style="width: 100%;">Add Item</button>
-            </form>
+            <div id="barcode-scanner-container"><div id="barcode-reader"></div><button class="btn btn-danger" style="width: 100%; margin-top: 10px;" id="close-scanner-btn">Close Scanner</button></div>
+            <form class="add-item-form" id="add-item-form"><div class="form-row"><div class="form-group" style="flex-grow: 4;"><label for="item-name">Item Name</label><input type="text" id="item-name" required></div><div class="form-group"><label> </label><button type="button" class="btn icon-btn" id="scan-barcode-btn" title="Scan Barcode">📷</button></div></div><div class="form-row"><div class="form-group"><label for="item-price">Price</label><input type="number" id="item-price" step="0.01" min="0" required></div><div class="form-group"><label for="item-quantity">Quantity</label><input type="number" id="item-quantity" value="1" min="1" required></div></div><div class="form-group"><label for="item-photo">Price Tag Photo (Optional)</label><input type="file" id="item-photo" accept="image/*"><img id="photo-preview" src="" alt="Photo Preview"></div><button type="submit" class="btn" style="width: 100%;">Add Item</button></form>
             <h2 id="current-list-title"></h2>
             <div id="item-list"></div>
         </main>
@@ -155,37 +145,17 @@
     <!-- MODALS -->
     <div id="new-list-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Create New List</h2><span class="close-btn">×</span></div><div class="modal-body"><input type="text" id="new-list-name" placeholder="e.g., Weekly Groceries"></div><div class="modal-footer"><button class="btn" id="create-list-btn" style="width:100%;">Create List</button></div></div></div>
     <div id="edit-item-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Edit Item</h2><span class="close-btn">×</span></div><div class="modal-body"><input type="hidden" id="edit-item-id"><div class="form-group"><label for="edit-item-name">Item Name</label><input type="text" id="edit-item-name" required></div><div class="form-row"><div class="form-group"><label for="edit-item-price">Price</label><input type="number" id="edit-item-price" step="0.01" min="0" required></div><div class="form-group"><label for="edit-item-quantity">Quantity</label><input type="number" id="edit-item-quantity" min="1" required></div></div><div class="form-group"><label for="edit-item-photo">Change Photo</label><input type="file" id="edit-item-photo" accept="image/*"><img id="edit-photo-preview" src="" style="max-width:100px; margin-top:10px; border-radius: var(--border-radius);"></div></div><div class="modal-footer"><button class="btn" id="save-item-changes-btn" style="width:100%;">Save Changes</button></div></div></div>
-    
-    <!-- [V3 Stage 4] Manage Groups Modal -->
-    <div id="manage-groups-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h2>Manage Groups</h2><span class="close-btn">×</span></div>
-            <div class="modal-body">
-                <h3>Create New Group</h3>
-                <div class="form-row">
-                    <input type="text" id="new-group-name" placeholder="e.g., Vacation Prep">
-                    <button class="btn" id="create-group-btn">Create</button>
-                </div>
-                <hr style="margin: 20px 0;">
-                <h3>Assign Lists to Groups</h3>
-                <ul id="list-group-assignments" class="management-list">
-                    <!-- Assignment items will be dynamically generated here -->
-                </ul>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Placeholder Modals -->
-    <div id="global-analytics-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Global Analytics</h2><span class="close-btn">×</span></div><div class="modal-body"></div></div></div>
-    <div id="settings-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Settings & Data</h2><span class="close-btn">×</span></div><div class="modal-body"></div></div></div>
-    <div id="analytics-filter-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Filter Analytics Data</h2><span class="close-btn">×</span></div><div class="modal-body"></div></div></div>
+    <div id="manage-groups-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Manage Groups</h2><span class="close-btn">×</span></div><div class="modal-body"><h3>Create New Group</h3><div class="form-row"><input type="text" id="new-group-name" placeholder="e.g., Vacation Prep"><button class="btn" id="create-group-btn">Create</button></div><hr style="margin: 20px 0;"><h3>Assign Lists to Groups</h3><ul id="list-group-assignments" class="management-list"></ul></div></div></div>
+    <div id="global-analytics-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Global Analytics</h2><span class="close-btn">×</span></div><div class="modal-body"><div class="chart-container"><canvas id="spending-chart"></canvas></div><div id="global-analytics-content"></div></div><div class="modal-footer"><button class="btn btn-secondary" id="filter-analytics-btn">Filter Data</button><button class="btn" id="export-view-json-btn">Export View (JSON)</button><button class="btn" id="export-view-csv-btn">Export View (CSV)</button></div></div></div>
+    <div id="analytics-filter-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Filter Analytics Data</h2><span class="close-btn">×</span></div><div id="filter-options-list" class="modal-body"></div><div class="modal-footer"><button class="btn" id="apply-analytics-filter-btn" style="width:100%;">Apply Filter</button></div></div></div>
+    <div id="settings-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Settings & Data</h2><span class="close-btn">×</span></div><div class="modal-body"><h3>Data Management</h3><p>Backup all lists, groups, and items to a single file.</p><button class="btn" id="backup-all-data-btn" style="width:100%;">Backup All Data</button><br><br><p>Import data from a backup file. This will merge with your existing data.</p><label for="import-data-input" class="btn btn-secondary" style="text-align:center; display:block;">Select Import File</label><input type="file" id="import-data-input" accept=".json" style="display:none;"></div></div></div>
     
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         // --- App State ---
         let appData = { lists: {}, groups: {}, currentListId: null };
-        let sortableInstance = null;
-        let html5QrCode = null;
+        let currentAnalyticsFilter = { type: 'all', ids: [] }; // [V3] Default filter
+        let sortableInstance = null, html5QrCode = null, analyticsChart = null;
 
         // --- DOM Elements ---
         const listSelector = document.getElementById('list-selector');
@@ -195,29 +165,22 @@
         const totalItemsEl = document.getElementById('total-items');
         const totalSpentEl = document.getElementById('total-spent');
         const avgPriceEl = document.getElementById('avg-price');
-        const newListModal = document.getElementById('new-list-modal');
+        // Buttons
         const newListBtn = document.getElementById('new-list-btn');
-        const createListBtn = document.getElementById('create-list-btn');
         const deleteListBtn = document.getElementById('delete-list-btn');
-        const editItemModal = document.getElementById('edit-item-modal');
-        const saveItemChangesBtn = document.getElementById('save-item-changes-btn');
-        const editItemIdInput = document.getElementById('edit-item-id');
-        const editItemNameInput = document.getElementById('edit-item-name');
-        const editItemPriceInput = document.getElementById('edit-item-price');
-        const editItemQuantityInput = document.getElementById('edit-item-quantity');
-        const editItemPhotoInput = document.getElementById('edit-item-photo');
-        const editPhotoPreview = document.getElementById('edit-photo-preview');
         const manageGroupsBtn = document.getElementById('manage-groups-btn');
-        const scannerContainer = document.getElementById('barcode-scanner-container');
+        const globalAnalyticsBtn = document.getElementById('global-analytics-btn');
+        const settingsBtn = document.getElementById('settings-btn');
         const scanBarcodeBtn = document.getElementById('scan-barcode-btn');
         const closeScannerBtn = document.getElementById('close-scanner-btn');
-        const photoPreview = document.getElementById('photo-preview');
-        // [V3 Stage 4] Group Management Modal Elements
+        // Modals
+        const newListModal = document.getElementById('new-list-modal');
+        const editItemModal = document.getElementById('edit-item-modal');
         const manageGroupsModal = document.getElementById('manage-groups-modal');
-        const createGroupBtn = document.getElementById('create-group-btn');
-        const newGroupNameInput = document.getElementById('new-group-name');
-        const listGroupAssignmentsEl = document.getElementById('list-group-assignments');
-
+        const globalAnalyticsModal = document.getElementById('global-analytics-modal');
+        const analyticsFilterModal = document.getElementById('analytics-filter-modal');
+        const settingsModal = document.getElementById('settings-modal');
+        
         // --- Data Functions ---
         const loadData = () => { if (localStorage.getItem('shoppingAppV3')) appData = JSON.parse(localStorage.getItem('shoppingAppV3')); };
         const saveData = () => localStorage.setItem('shoppingAppV3', JSON.stringify(appData));
@@ -228,13 +191,12 @@
             loadData();
             if (Object.keys(appData.lists).length === 0) {
                 const firstListId = generateId();
-                appData.lists[firstListId] = { id: firstListId, name: "My First List", items: [], createdAt: new Date().toISOString(), groupId: null, budget: null };
+                appData.lists[firstListId] = { id: firstListId, name: "My First List", items: [], createdAt: new Date().toISOString(), groupId: null };
                 appData.currentListId = firstListId;
-                if (!appData.groups) appData.groups = {}; // Ensure groups object exists
-                saveData();
             }
-            appData.currentListId = appData.currentListId || Object.keys(appData.lists)[0] || null;
             if (!appData.groups) appData.groups = {};
+            appData.currentListId = appData.currentListId || Object.keys(appData.lists)[0] || null;
+            
             html5QrCode = new Html5Qrcode("barcode-reader");
             setupEventListeners();
             initializeSortable();
@@ -244,7 +206,7 @@
         // --- UI Rendering ---
         function renderUI() {
             const currentList = appData.lists[appData.currentListId];
-            currentListTitle.textContent = currentList ? currentList.name : "No list selected";
+            currentListTitle.textContent = currentList ? currentList.name : "No lists exist.";
             if (!currentList) itemListEl.innerHTML = '';
             renderListSelector();
             renderItems();
@@ -253,51 +215,26 @@
 
         function renderListSelector() {
             listSelector.innerHTML = '';
-            
-            // Get all groups and sort them alphabetically
-            const sortedGroups = Object.values(appData.groups).sort((a, b) => a.name.localeCompare(b.name));
-            
-            // Create a map for quick lookup
+            const sortedGroups = Object.values(appData.groups).sort((a,b) => a.name.localeCompare(b.name));
             const groupedLists = {};
             sortedGroups.forEach(group => groupedLists[group.id] = []);
             const ungroupedLists = [];
 
-            Object.values(appData.lists).forEach(list => {
-                if (list.groupId && appData.groups[list.groupId]) {
-                    groupedLists[list.groupId].push(list);
-                } else {
-                    ungroupedLists.push(list);
-                }
-            });
+            Object.values(appData.lists).forEach(list => (list.groupId && appData.groups[list.groupId]) ? groupedLists[list.groupId].push(list) : ungroupedLists.push(list));
 
-            // Render grouped lists
             sortedGroups.forEach(group => {
                 const optgroup = document.createElement('optgroup');
                 optgroup.label = group.name;
-                groupedLists[group.id].sort((a,b) => a.name.localeCompare(b.name)).forEach(list => {
-                    optgroup.appendChild(createOption(list));
-                });
+                groupedLists[group.id].sort((a,b) => a.name.localeCompare(b.name)).forEach(list => optgroup.appendChild(createOption(list)));
                 listSelector.appendChild(optgroup);
             });
-
-            // Render ungrouped lists
             if (ungroupedLists.length > 0) {
-                const ungroupedOptgroup = document.createElement('optgroup');
-                ungroupedOptgroup.label = "Ungrouped";
-                ungroupedLists.sort((a,b) => a.name.localeCompare(b.name)).forEach(list => {
-                    ungroupedOptgroup.appendChild(createOption(list));
-                });
-                listSelector.appendChild(ungroupedOptgroup);
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = "Ungrouped";
+                ungroupedLists.sort((a,b) => a.name.localeCompare(b.name)).forEach(list => optgroup.appendChild(createOption(list)));
+                listSelector.appendChild(optgroup);
             }
-
-            function createOption(list) {
-                const option = document.createElement('option');
-                option.value = list.id;
-                option.textContent = list.name;
-                if (list.id === appData.currentListId) option.selected = true;
-                return option;
-            }
-
+            function createOption(list) { const opt = document.createElement('option'); opt.value = list.id; opt.textContent = list.name; if (list.id === appData.currentListId) opt.selected = true; return opt; }
             deleteListBtn.style.display = Object.keys(appData.lists).length > 0 ? 'flex' : 'none';
         }
         
@@ -330,129 +267,225 @@
             addItemForm.addEventListener('submit', handleAddItem);
             document.querySelectorAll('.modal .close-btn').forEach(btn => btn.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none'));
             window.addEventListener('click', (e) => { document.querySelectorAll('.modal').forEach(modal => { if (e.target === modal) modal.style.display = 'none'; }); });
+            
+            // Header Buttons
             newListBtn.addEventListener('click', () => { newListModal.style.display = 'flex'; });
-            createListBtn.addEventListener('click', handleCreateList);
             deleteListBtn.addEventListener('click', handleDeleteList);
+            manageGroupsBtn.addEventListener('click', openGroupManager);
+            globalAnalyticsBtn.addEventListener('click', () => openGlobalAnalytics());
+            settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
+
+            // Modal Buttons
+            document.getElementById('create-list-btn').addEventListener('click', handleCreateList);
+            document.getElementById('save-item-changes-btn').addEventListener('click', handleSaveChanges);
+            document.getElementById('create-group-btn').addEventListener('click', handleCreateGroup);
+            document.getElementById('list-group-assignments').addEventListener('change', handleAssignListToGroup);
+            document.getElementById('filter-analytics-btn').addEventListener('click', openAnalyticsFilterModal);
+            document.getElementById('apply-analytics-filter-btn').addEventListener('click', handleApplyFilter);
+            document.getElementById('export-view-json-btn').addEventListener('click', () => handleExportView('json'));
+            document.getElementById('export-view-csv-btn').addEventListener('click', () => handleExportView('csv'));
+            document.getElementById('backup-all-data-btn').addEventListener('click', handleBackupAllData);
+            document.getElementById('import-data-input').addEventListener('change', handleImportData);
+            
+            // Other Listeners
             itemListEl.addEventListener('click', (e) => {
                 const deleteBtn = e.target.closest('.delete-item-btn');
                 const editBtn = e.target.closest('.edit-item-btn');
                 if (deleteBtn) handleDeleteItem(e.target.closest('.item-card').dataset.id);
                 if (editBtn) openEditItemModal(e.target.closest('.item-card').dataset.id);
             });
-            saveItemChangesBtn.addEventListener('click', handleSaveChanges);
-            editItemPhotoInput.addEventListener('change', handlePhotoPreview);
+            document.getElementById('edit-item-photo').addEventListener('change', handlePhotoPreview);
             document.getElementById('item-photo').addEventListener('change', handlePhotoPreview);
             scanBarcodeBtn.addEventListener('click', startScanner);
             closeScannerBtn.addEventListener('click', stopScanner);
-            // [V3 Stage 4] Group Management Listeners
-            manageGroupsBtn.addEventListener('click', openGroupManager);
-            createGroupBtn.addEventListener('click', handleCreateGroup);
-            listGroupAssignmentsEl.addEventListener('change', handleAssignListToGroup);
         }
         
-        function initializeSortable() {
-            if (sortableInstance) sortableInstance.destroy();
-            sortableInstance = new Sortable(itemListEl, { handle: '.drag-handle', animation: 150, ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', onEnd: handleItemDragEnd });
-        }
-
-        // --- Event Handlers (omitting unchanged ones for brevity) ---
-        function handleAddItem(e) { /* Full implementation here */ e.preventDefault(); const form=e.target,itemName=form.querySelector("#item-name").value.trim(),itemPrice=parseFloat(form.querySelector("#item-price").value),itemQuantity=parseInt(form.querySelector("#item-quantity").value,10); if(!itemName||isNaN(itemPrice)||isNaN(itemQuantity)||!appData.currentListId)return void alert("Please fill out all fields correctly."); const newItem={id:generateId(),name:itemName,price:itemPrice,quantity:itemQuantity,photo:photoPreview.src,createdAt:(new Date).toISOString()}; appData.lists[appData.currentListId].items.push(newItem),saveData(),renderUI(),form.reset(),photoPreview.style.display="none",photoPreview.src="" }
-        function handleCreateList() { /* Full implementation here */ const e=document.getElementById("new-list-name"),t=e.value.trim();if(t){if(Object.values(appData.lists).some(e=>e.name===t))return void alert("A list with this name already exists. Please choose a different name.");const o=generateId();appData.lists[o]={id:o,name:t,items:[],createdAt:(new Date).toISOString(),groupId:null,budget:null},appData.currentListId=o,saveData(),renderUI(),newListModal.style.display="none",e.value=""} }
-        function handleDeleteList() { /* Full implementation here */ if(appData.currentListId){const e=appData.lists[appData.currentListId].name;confirm(`Are you sure you want to delete the list "${e}"? This action cannot be undone.`)&&(delete appData.lists[appData.currentListId],appData.currentListId=Object.keys(appData.lists)[0]||null,saveData(),renderUI())} }
-        function handleDeleteItem(e) { /* Full implementation here */ const t=appData.lists[appData.currentListId];t&&(t.items=t.items.filter(t=>t.id!==e),saveData(),renderUI()) }
-        function openEditItemModal(e) { /* Full implementation here */ const t=appData.lists[appData.currentListId],o=t.items.find(t=>t.id===e);o&&(editItemIdInput.value=o.id,editItemNameInput.value=o.name,editItemPriceInput.value=o.price,editItemQuantityInput.value=o.quantity,editPhotoPreview.src=o.photo||"",editPhotoPreview.style.display=o.photo?"block":"none",editItemPhotoInput.value="",editItemModal.style.display="flex") }
-        function handleSaveChanges() { /* Full implementation here */ const e=editItemIdInput.value,t=appData.lists[appData.currentListId],o=t.items.findIndex(t=>t.id===e);if(-1!==o){const i=editItemNameInput.value.trim(),n=parseFloat(editItemPriceInput.value),d=parseInt(editItemQuantityInput.value,10);if(!i||isNaN(n)||isNaN(d))return void alert("Please fill out all fields correctly.");t.items[o].name=i,t.items[o].price=n,t.items[o].quantity=d,t.items[o].photo=editPhotoPreview.src,saveData(),renderUI(),editItemModal.style.display="none"}else alert("Error: Item not found to save changes.") }
-        function handleItemDragEnd(e) { /* Full implementation here */ const{oldIndex:t,newIndex:o}=e,i=appData.lists[appData.currentListId];if(i){const[n]=i.items.splice(t,1);i.items.splice(o,0,n),saveData()} }
-        function handlePhotoPreview(e) {
-    const input = event.target;
-    // Determine which preview image to update based on the input's ID
-    const previewEl = input.id === 'edit-item-photo' ? editPhotoPreview : photoPreview;
-    const file = input.files[0];
-
-    if (file) {
-        const reader = new FileReader(); // This line was effectively broken before
-        reader.onload = (e) => {
-            previewEl.src = e.target.result;
-            previewEl.style.display = 'block';
-        };
-        reader.readAsDataURL(file); // This line was also broken
-    } else {
-        // If no file is selected (e.g., user cancels), clear the preview
-        previewEl.src = '';
-        previewEl.style.display = 'none';
-    }
-}
-        function startScanner() { /* Full implementation here */ addItemForm.style.display="none",scannerContainer.style.display="block";const e={fps:10,qrbox:{width:250,height:150}},t=(e,t)=>{stopScanner(),fetchProductInfo(e)};html5QrCode.start({facingMode:"environment"},e,t,e=>{})}
-        function stopScanner() { /* Full implementation here */ html5QrCode.stop().then(e=>{scannerContainer.style.display="none",addItemForm.style.display="block"}).catch(e=>{console.error("Error stopping scanner:",e),scannerContainer.style.display="none",addItemForm.style.display="block"})}
-        async function fetchProductInfo(e) { /* Full implementation here */ alert(`Searching for product with barcode: ${e}...`);try{const t=await fetch(`https://world.openfoodfacts.org/api/v0/product/${e}.json`);if(!t.ok)throw new Error(`HTTP error! status: ${t.status}`);const o=await t.json();if(1===o.status&&o.product){const e=o.product;document.getElementById("item-name").value=e.product_name||e.generic_name||"Unknown Product";const t=e.image_front_url||e.image_url||"";t?(photoPreview.src=t,photoPreview.style.display="block"):(photoPreview.style.display="none",photoPreview.src=""),alert("Product found! Please enter price and quantity.")}else alert("Product not found in the Open Food Facts database."),document.getElementById("item-name").value="",photoPreview.style.display="none",photoPreview.src=""}catch(e){console.error("Error fetching product info:",e),alert("Failed to fetch product information. Please check your internet connection or try again manually."),document.getElementById("item-name").value="",photoPreview.style.display="none",photoPreview.src=""}}
-
-        // [V3 Stage 4] Group Management Functions
-        function openGroupManager() {
-            renderGroupManager();
-            manageGroupsModal.style.display = 'flex';
-        }
-
-        function renderGroupManager() {
-            listGroupAssignmentsEl.innerHTML = '';
-            Object.values(appData.lists).sort((a,b)=>a.name.localeCompare(b.name)).forEach(list => {
-                const li = document.createElement('li');
-                li.className = 'management-item';
-                
-                const select = document.createElement('select');
-                select.dataset.listId = list.id;
-                
-                // Add default "Ungrouped" option
-                const defaultOption = document.createElement('option');
-                defaultOption.value = 'null';
-                defaultOption.textContent = 'Ungrouped';
-                select.appendChild(defaultOption);
-
-                // Add an option for each group
-                Object.values(appData.groups).sort((a,b)=>a.name.localeCompare(b.name)).forEach(group => {
-                    const option = document.createElement('option');
-                    option.value = group.id;
-                    option.textContent = group.name;
-                    if (list.groupId === group.id) {
-                        option.selected = true;
-                    }
-                    select.appendChild(option);
+        function initializeSortable() { if (sortableInstance) sortableInstance.destroy(); sortableInstance = new Sortable(itemListEl, { handle: '.drag-handle', animation: 150, ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', onEnd: handleItemDragEnd }); }
+        
+        // --- Full Event Handler Implementations ---
+        function handleAddItem(e){e.preventDefault();const t=e.target,o=t.querySelector("#item-name").value.trim(),l=parseFloat(t.querySelector("#item-price").value),i=parseInt(t.querySelector("#item-quantity").value,10),n=t.querySelector("#photo-preview");if(!o||isNaN(l)||isNaN(i)||!appData.currentListId)return void alert("Please fill out all fields correctly.");const a={id:generateId(),name:o,price:l,quantity:i,photo:n.src,createdAt:(new Date).toISOString()};appData.lists[appData.currentListId].items.push(a),saveData(),renderUI(),t.reset(),n.style.display="none",n.src=""}
+        function handleCreateList(){const e=document.getElementById("new-list-name"),t=e.value.trim();if(t){if(Object.values(appData.lists).some(e=>e.name===t))return void alert("A list with this name already exists.");const o=generateId();appData.lists[o]={id:o,name:t,items:[],createdAt:(new Date).toISOString(),groupId:null},appData.currentListId=o,saveData(),renderUI(),newListModal.style.display="none",e.value=""}}
+        function handleDeleteList(){if(!appData.currentListId)return;const e=appData.lists[appData.currentListId].name;confirm(`Are you sure you want to delete the list "${e}"?`)&&(delete appData.lists[appData.currentListId],appData.currentListId=Object.keys(appData.lists)[0]||null,saveData(),renderUI())}
+        function handleDeleteItem(e){const t=appData.lists[appData.currentListId];t&&(t.items=t.items.filter(t=>t.id!==e),saveData(),renderUI())}
+        function openEditItemModal(e){const t=appData.lists[appData.currentListId].items.find(t=>t.id===e);if(!t)return;document.getElementById("edit-item-id").value=t.id,document.getElementById("edit-item-name").value=t.name,document.getElementById("edit-item-price").value=t.price,document.getElementById("edit-item-quantity").value=t.quantity;const o=document.getElementById("edit-photo-preview");o.src=t.photo||"",o.style.display=t.photo?"block":"none",document.getElementById("edit-item-photo").value="",editItemModal.style.display="flex"}
+        function handleSaveChanges(){const e=document.getElementById("edit-item-id").value,t=appData.lists[appData.currentListId],o=t.items.findIndex(t=>t.id===e);if(-1===o)return;const l=document.getElementById("edit-item-name").value.trim(),i=parseFloat(document.getElementById("edit-item-price").value),n=parseInt(document.getElementById("edit-item-quantity").value,10);if(!l||isNaN(i)||isNaN(n))return void alert("Please fill out all fields correctly.");t.items[o].name=l,t.items[o].price=i,t.items[o].quantity=n,t.items[o].photo=document.getElementById("edit-photo-preview").src,saveData(),renderUI(),editItemModal.style.display="none"}
+        function handleItemDragEnd(e){const{oldIndex:t,newIndex:o}=e,l=appData.lists[appData.currentListId];if(!l)return;const[i]=l.items.splice(t,1);l.items.splice(o,0,i),saveData()}
+        function handlePhotoPreview(e){const t=e.target,o="edit-item-photo"===t.id?document.getElementById("edit-photo-preview"):document.getElementById("photo-preview"),l=t.files[0];if(l){const e=new FileReader;e.onload=t=>{o.src=t.target.result,o.style.display="block"},e.readAsDataURL(l)}else o.src="",o.style.display="none"}
+        function startScanner(){addItemForm.style.display="none",scannerContainer.style.display="block";const e={fps:10,qrbox:{width:250,height:150}},t=(e,t)=>{stopScanner(),fetchProductInfo(e)};html5QrCode.start({facingMode:"environment"},e,t,e=>{}).catch(e=>{alert("Could not start scanner."),stopScanner()})}
+        function stopScanner(){html5QrCode.stop().then(e=>{scannerContainer.style.display="none",addItemForm.style.display="block"}).catch(e=>{scannerContainer.style.display="none",addItemForm.style.display="block"})}
+        async function fetchProductInfo(e){alert(`Searching for barcode: ${e}...`);try{const t=await fetch(`https://world.openfoodfacts.org/api/v0/product/${e}.json`);if(!t.ok)throw new Error(`HTTP error! status: ${t.status}`);const o=await t.json();if(1===o.status&&o.product){const e=o.product;document.getElementById("item-name").value=e.product_name||e.generic_name||"Unknown Product";const t=document.getElementById("photo-preview"),l=e.image_front_url||e.image_url||"";l?(t.src=l,t.style.display="block"):(t.style.display="none",t.src=""),alert("Product found!")}else alert("Product not found.")}catch(e){alert("Failed to fetch product information.")}}
+        function openGroupManager(){renderGroupManager(),manageGroupsModal.style.display="flex"}
+        function renderGroupManager(){const e=document.getElementById("list-group-assignments");e.innerHTML="",Object.values(appData.lists).sort((e,t)=>e.name.localeCompare(t.name)).forEach(t=>{const o=document.createElement("li");o.className="management-item";const l=document.createElement("select");l.dataset.listId=t.id;const i=document.createElement("option");i.value="null",i.textContent="Ungrouped",l.appendChild(i),Object.values(appData.groups).sort((e,t)=>e.name.localeCompare(t.name)).forEach(e=>{const o=document.createElement("option");o.value=e.id,o.textContent=e.name,t.groupId===e.id&&(o.selected=!0),l.appendChild(o)}),o.innerHTML=`<span class="name">${t.name}</span>`,o.appendChild(l),e.appendChild(o)})}
+        function handleCreateGroup(){const e=document.getElementById("new-group-name"),t=e.value.trim();if(!t)return void alert("Group name cannot be empty.");if(Object.values(appData.groups).some(e=>e.name===t))return void alert("A group with this name already exists.");const o=generateId();appData.groups[o]={id:o,name:t},saveData(),renderGroupManager(),e.value=""}
+        function handleAssignListToGroup(e){const t=e.target,o=t.dataset.listId,l="null"===t.value?null:t.value;appData.lists[o]&&(appData.lists[o].groupId=l,saveData(),renderListSelector())}
+        
+        // [V3] Analytics Functions
+        function getFilteredLists() {
+            if (currentAnalyticsFilter.type === 'all') return Object.values(appData.lists);
+            let listIds = new Set();
+            if (currentAnalyticsFilter.ids.lists) currentAnalyticsFilter.ids.lists.forEach(id => listIds.add(id));
+            if (currentAnalyticsFilter.ids.groups) {
+                currentAnalyticsFilter.ids.groups.forEach(groupId => {
+                    Object.values(appData.lists).forEach(list => { if (list.groupId === groupId) listIds.add(list.id); });
                 });
+            }
+            return Array.from(listIds).map(id => appData.lists[id]);
+        }
+        
+        function openGlobalAnalytics() {
+            const listsToAnalyze = getFilteredLists();
+            const contentEl = document.getElementById('global-analytics-content');
+            const chartContainer = document.querySelector('.chart-container');
+            if (analyticsChart) analyticsChart.destroy();
+            
+            if (listsToAnalyze.length === 0) {
+                contentEl.innerHTML = "<p>No lists match the current filter.</p>";
+                chartContainer.style.display = 'none';
+                globalAnalyticsModal.style.display = 'flex';
+                return;
+            }
+            chartContainer.style.display = 'block';
 
-                li.innerHTML = `<span class="name">${list.name}</span>`;
-                li.appendChild(select);
-                listGroupAssignmentsEl.appendChild(li);
+            let totalSpentAll = 0, totalItemsAll = 0, listTotals = [];
+            listsToAnalyze.forEach(list => {
+                const listSpent = list.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const listItems = list.items.reduce((sum, item) => sum + item.quantity, 0);
+                totalSpentAll += listSpent;
+                totalItemsAll += listItems;
+                listTotals.push({ name: list.name, total: listSpent, createdAt: list.createdAt });
             });
+            listTotals.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+            const chartLabels = listTotals.map(list => list.name);
+            const chartData = listTotals.map(list => list.total);
+            const ctx = document.getElementById('spending-chart').getContext('2d');
+            analyticsChart = new Chart(ctx, { type: 'line', data: { labels: chartLabels, datasets: [{ label: 'Total Spending', data: chartData, backgroundColor: 'rgba(142, 68, 173, 0.2)', borderColor: 'rgba(142, 68, 173, 1)', borderWidth: 2, fill: true, tension: 0.1 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Spending Over Time' }}, scales: { y: { beginAtZero: true, ticks: { callback: (value) => '$' + value.toFixed(2) }}} } });
+
+            const mostExpensive = [...listTotals].sort((a,b) => b.total - a.total)[0];
+            const avgListSpend = listsToAnalyze.length > 0 ? (totalSpentAll / listsToAnalyze.length).toFixed(2) : '0.00';
+            contentEl.innerHTML = `<div class="analysis-item"><span>Lists Included:</span> <span>${listsToAnalyze.length}</span></div><div class="analysis-item"><span>Total Items:</span> <span>${totalItemsAll}</span></div><div class="analysis-item"><span>Total Spending:</span> <span>$${totalSpentAll.toFixed(2)}</span></div><hr><div class="analysis-item"><span>Average List Total:</span> <span>$${avgListSpend}</span></div><div class="analysis-item"><span>Most Expensive List:</span> <span>${mostExpensive.name} ($${mostExpensive.total.toFixed(2)})</span></div>`;
+            globalAnalyticsModal.style.display = 'flex';
         }
 
-        function handleCreateGroup() {
-            const groupName = newGroupNameInput.value.trim();
-            if (!groupName) {
-                alert("Group name cannot be empty.");
-                return;
+        function openAnalyticsFilterModal() {
+            const filterOptionsList = document.getElementById('filter-options-list');
+            filterOptionsList.innerHTML = ''; // Clear previous options
+            
+            let content = '<div class="filter-group-header">Groups</div>';
+            Object.values(appData.groups).forEach(group => {
+                const isChecked = currentAnalyticsFilter.type !== 'all' && currentAnalyticsFilter.ids.groups.includes(group.id);
+                content += `<div class="filter-item"><label><input type="checkbox" class="filter-checkbox" data-type="group" value="${group.id}" ${isChecked ? 'checked' : ''}> ${group.name}</label></div>`;
+            });
+
+            content += '<div class="filter-group-header">Individual Lists</div>';
+            Object.values(appData.lists).forEach(list => {
+                const isChecked = currentAnalyticsFilter.type !== 'all' && currentAnalyticsFilter.ids.lists.includes(list.id);
+                content += `<div class="filter-item"><label><input type="checkbox" class="filter-checkbox" data-type="list" value="${list.id}" ${isChecked ? 'checked' : ''}> ${list.name}</label></div>`;
+            });
+            filterOptionsList.innerHTML = content;
+            analyticsFilterModal.style.display = 'flex';
+        }
+        
+        function handleApplyFilter() {
+            const selectedGroups = [];
+            const selectedLists = [];
+            document.querySelectorAll('.filter-checkbox:checked').forEach(checkbox => {
+                if (checkbox.dataset.type === 'group') {
+                    selectedGroups.push(checkbox.value);
+                } else {
+                    selectedLists.push(checkbox.value);
+                }
+            });
+            
+            if (selectedGroups.length === 0 && selectedLists.length === 0) {
+                currentAnalyticsFilter = { type: 'all', ids: [] }; // Revert to all if nothing selected
+            } else {
+                currentAnalyticsFilter = { type: 'custom', ids: { groups: selectedGroups, lists: selectedLists } };
             }
-            if (Object.values(appData.groups).some(g => g.name === groupName)) {
-                alert("A group with this name already exists.");
-                return;
-            }
-            const groupId = generateId();
-            appData.groups[groupId] = { id: groupId, name: groupName };
-            saveData();
-            renderGroupManager(); // Re-render the manager to include the new group
-            newGroupNameInput.value = '';
+            analyticsFilterModal.style.display = 'none';
+            openGlobalAnalytics(); // Refresh analytics view with new filter
         }
 
-        function handleAssignListToGroup(event) {
-            const selectEl = event.target;
-            const listId = selectEl.dataset.listId;
-            const groupId = selectEl.value === 'null' ? null : selectEl.value;
-
-            if (appData.lists[listId]) {
-                appData.lists[listId].groupId = groupId;
-                saveData();
-                renderListSelector(); // Re-render the main selector to reflect the change
+        function downloadFile(filename, content, contentType) { const a = document.createElement('a'); const file = new Blob([content], {type: contentType}); a.href = URL.createObjectURL(file); a.download = filename; a.click(); URL.revokeObjectURL(a.href); }
+        
+        function handleExportView(format) {
+            const listsToExport = getFilteredLists();
+            if (listsToExport.length === 0) { alert("No lists selected in the filter to export."); return; }
+            
+            if (format === 'json') {
+                const exportData = { lists: {}, groups: {} };
+                listsToExport.forEach(list => {
+                    exportData.lists[list.id] = list;
+                    if (list.groupId && appData.groups[list.groupId]) {
+                        exportData.groups[list.groupId] = appData.groups[list.groupId];
+                    }
+                });
+                downloadFile('SmartShop_Export.json', JSON.stringify(exportData, null, 2), 'application/json');
+            } else if (format === 'csv') {
+                let csvContent = "List Name,Item Name,Price,Quantity,Photo URL\r\n";
+                listsToExport.forEach(list => {
+                    list.items.forEach(item => {
+                        csvContent += `"${list.name}","${item.name}",${item.price},${item.quantity},"${item.photo || ''}"\r\n`;
+                    });
+                });
+                downloadFile('SmartShop_Export.csv', csvContent, 'text/csv;charset=utf-8;');
+            }
+        }
+        
+        function handleBackupAllData() {
+            if (confirm("This will create a backup file of ALL your data. Continue?")) {
+                downloadFile('SmartShop_Full_Backup.json', JSON.stringify(appData, null, 2), 'application/json');
             }
         }
 
+        function handleImportData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!importedData.lists) throw new Error("Invalid backup file.");
+
+                    // Merge groups
+                    if(importedData.groups) {
+                        Object.values(importedData.groups).forEach(importedGroup => {
+                            let groupName = importedGroup.name;
+                            let nameCounter = 1;
+                            while(Object.values(appData.groups).some(g => g.name === groupName)) {
+                                groupName = `${importedGroup.name} (Imported ${nameCounter++})`;
+                            }
+                            const newGroupId = generateId();
+                            appData.groups[newGroupId] = { id: newGroupId, name: groupName };
+                            // Update list groupId references
+                            Object.values(importedData.lists).forEach(l => { if (l.groupId === importedGroup.id) l.groupId = newGroupId; });
+                        });
+                    }
+                    
+                    // Merge lists
+                    Object.values(importedData.lists).forEach(importedList => {
+                        let listName = importedList.name;
+                        let nameCounter = 1;
+                        while(Object.values(appData.lists).some(l => l.name === listName)) {
+                            listName = `${importedList.name} (Imported ${nameCounter++})`;
+                        }
+                        const newListId = generateId();
+                        appData.lists[newListId] = { ...importedList, id: newListId, name: listName };
+                    });
+
+                    saveData();
+                    renderUI();
+                    alert("Data imported successfully!");
+                } catch (err) {
+                    alert("Import failed. The file is either corrupted or not a valid backup file.");
+                    console.error("Import error:", err);
+                } finally {
+                    event.target.value = ''; // Reset file input
+                }
+            };
+            reader.readAsText(file);
+        }
+        
         // --- Start the App ---
         initialize();
     });
