@@ -1,874 +1,516 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  BarChart,
-  Bar,
-} from "recharts";
-import {
-  Plus,
-  Trash2,
-  Settings as SettingsIcon,
-  BarChart3,
-  FolderGit2,
-  Camera,
-  ScanLine,
-  Edit3,
-  GripVertical,
-  ShoppingCart,
-  CheckCircle2,
-  Circle,
-  Search,
-  Upload,
-  Download,
-  Package,
-  DollarSign,
-} from "lucide-react";
-import Sortable from "sortablejs";
-import { Html5Qrcode } from "html5-qrcode";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Shopping List V3 (Final)</title>
+    <!-- V3 Library Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #8e44ad;
+            --secondary-color: #3498db;
+            --danger-color: #c0392b;
+            --warning-color: #f39c12;
+            --success-color: #27ae60;
+            --background-gradient: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            --white: #ffffff;
+            --light-gray: #f0f0f0;
+            --dark-gray: #333333;
+            --shadow: 0 4px 15px rgba(0,0,0,0.1);
+            --border-radius: 12px;
+        }
 
-// ------------------------------------------------------------
-// ShopTally Pro — A better shopping trip spending tracker
-// ------------------------------------------------------------
-// Key upgrades vs your V3:
-// • Per-list budgets with live progress + over/under alerts
-// • Toggle tax (e.g., Ontario HST 13%) and price-includes-tax option
-// • Categories + stores + per-unit math (e.g., $/kg, $/L)
-// • Planned vs Purchased flow with fast “checkout” mode
-// • Quick-add: frequent items suggestions
-// • Search + filters + sort + keyboard shortcuts
-// • Enhanced analytics: by list, category, store + CSV/JSON export
-// • Backup/restore with versioning + image compression for receipts/tags
-// • Dark mode + compact mobile-first UI
-// ------------------------------------------------------------
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--background-gradient);
+            color: var(--dark-gray);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 15px;
+            box-sizing: border-box;
+        }
 
-// ---------- Utilities ----------
-const VERSION = "stp_v1";
-const COLORS = [
-  "#8e44ad",
-  "#3498db",
-  "#27ae60",
-  "#f39c12",
-  "#c0392b",
-  "#16a085",
-  "#2c3e50",
-  "#e67e22",
-  "#7f8c8d",
-];
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            background: var(--light-gray);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
 
-const genId = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+        header {
+            background: var(--white);
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .header-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .header-row:not(:last-child) { margin-bottom: 10px; }
+        #list-selector { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: var(--border-radius); font-size: 16px; }
 
-function useLocalStorage(key, initial) {
-  const [state, setState] = useState(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : initial;
-    } catch {
-      return initial;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(state));
-    } catch {}
-  }, [key, state]);
-  return [state, setState];
-}
+        .btn { padding: 10px 15px; border: none; border-radius: var(--border-radius); background: var(--primary-color); color: var(--white); cursor: pointer; font-size: 16px; transition: background 0.3s; flex-shrink: 0; }
+        .btn:hover { background: #732d91; }
+        .btn-secondary { background: var(--secondary-color); }
+        .btn-secondary:hover { background: #2980b9; }
+        .btn-danger { background: var(--danger-color); }
+        .btn-danger:hover { background: #a5281b; }
+        .btn-small { padding: 5px 10px; font-size: 14px; }
+        .icon-btn { padding: 8px; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; }
 
-function currencyFmt(value, currency) {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD" }).format(Number(value) || 0);
-}
+        .analytics-header { display: flex; justify-content: space-around; text-align: center; padding: 15px 0; background: rgba(255,255,255,0.5); }
+        .metric { font-size: 14px; }
+        .metric span { display: block; font-weight: bold; font-size: 18px; }
 
-async function fileToDataUrl(file, maxW = 640, quality = 0.7) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const scale = Math.min(maxW / img.width, 1);
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
-        resolve(dataUrl);
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
+        main { padding: 20px; }
+        
+        #barcode-scanner-container { display: none; margin-bottom: 15px; }
+        #barcode-reader { border: 2px solid #ddd; border-radius: var(--border-radius); }
 
-// ---------- Types (for clarity) ----------
-// List: { id, name, createdAt, groupId, budget, store, items: Item[] }
-// Item: { id, name, price, quantity, unitName, unitSize, category, store, purchased, photo, barcode, createdAt }
-// Group: { id, name }
+        .add-item-form { background: var(--white); padding: 20px; border-radius: var(--border-radius); margin-bottom: 20px; box-shadow: var(--shadow); }
+        .form-row { display: flex; gap: 10px; align-items: center; }
+        .form-group { margin-bottom: 15px; flex-grow: 1; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: var(--border-radius); box-sizing: border-box; }
+        #photo-preview { max-width: 100px; margin-top: 10px; border-radius: var(--border-radius); display: none; }
 
-// ---------- Default Data ----------
-const DEFAULT_SETTINGS = {
-  currency: "CAD",
-  taxRate: 0.13, // Ontario HST as sensible default for you
-  pricesIncludeTax: false,
-  theme: "auto", // auto | light | dark
-};
+        #item-list { display: grid; gap: 15px; }
+        .item-card { background: var(--white); padding: 15px; border-radius: var(--border-radius); box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px; position: relative; }
+        .item-card .drag-handle { cursor: grab; font-size: 24px; color: #ccc; padding-right: 5px; }
+        .item-card .drag-handle:active { cursor: grabbing; }
+        .sortable-ghost { opacity: 0.4; background: #e0c8ee; }
+        .sortable-chosen { box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
 
-const DEFAULT_STATE = {
-  version: VERSION,
-  lists: {},
-  groups: {},
-  currentListId: null,
-  settings: DEFAULT_SETTINGS,
-};
+        .item-card img { width: 60px; height: 60px; border-radius: var(--border-radius); object-fit: cover; }
+        .item-info { flex-grow: 1; }
+        .item-info h3 { margin: 0; font-size: 18px; }
+        .item-info p { margin: 5px 0 0; font-size: 16px; color: var(--primary-color); font-weight: bold; }
+        .item-actions { display: flex; gap: 5px; }
 
-// ---------- Root Component ----------
-export default function ShopTallyPro() {
-  const [data, setData] = useLocalStorage("ShopTallyPro", DEFAULT_STATE);
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const [scannerLoading, setScannerLoading] = useState(false);
-  const [html5Qr, setHtml5Qr] = useState(null);
-  const qrRef = useRef(null);
-  const listRef = useRef(null);
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center; }
+        .modal-content { background-color: var(--light-gray); padding: 20px; border-radius: var(--border-radius); width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); position: relative; max-height: 80vh; display: flex; flex-direction: column; }
+        .modal-body { overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 20px; flex-shrink: 0; }
+        .modal-header h2 { margin: 0; }
+        .close-btn { font-size: 28px; font-weight: bold; cursor: pointer; }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: var(--border-radius); box-sizing: border-box; margin-bottom: 15px; }
+        .modal-footer { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px; display:flex; gap: 10px; flex-wrap: wrap; }
+        
+        .chart-container { position: relative; height: 220px; width: 100%; margin-bottom: 20px; }
+        
+        .management-list, .filter-list { list-style: none; padding: 0; margin: 0; }
+        .management-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; background: var(--white); border-radius: var(--border-radius); margin-bottom: 10px; }
+        .management-item .name { font-weight: bold; }
+        .management-item select { margin-bottom: 0; }
+        .filter-item label { display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; background: var(--white); border-radius: 8px; margin-bottom: 8px; }
+        .filter-item label span { flex-grow: 1; }
+        .filter-group-header { font-weight: bold; margin-top: 15px; padding-bottom: 5px; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
 
-  // Form state
-  const [newItem, setNewItem] = useState({
-    name: "",
-    price: "",
-    quantity: 1,
-    unitName: "",
-    unitSize: "",
-    category: "",
-    store: "",
-    photo: "",
-    barcode: "",
-  });
-
-  const currentList = data.currentListId ? data.lists[data.currentListId] : null;
-
-  // Ensure one starter list
-  useEffect(() => {
-    if (!currentList) {
-      const id = genId();
-      const lists = { ...data.lists, [id]: { id, name: "My First Trip", createdAt: new Date().toISOString(), groupId: null, budget: 0, store: "", items: [] } };
-      setData((d) => ({ ...d, lists, currentListId: id }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Drag & drop ordering
-  useEffect(() => {
-    if (!listRef.current) return;
-    const sortable = new Sortable(listRef.current, {
-      handle: ".drag",
-      animation: 150,
-      ghostClass: "opacity-50",
-      onEnd: (evt) => {
-        const { oldIndex, newIndex } = evt;
-        setData((d) => {
-          const list = d.lists[d.currentListId];
-          if (!list) return d;
-          const items = [...list.items];
-          const [moved] = items.splice(oldIndex, 1);
-          items.splice(newIndex, 0, moved);
-          return { ...d, lists: { ...d.lists, [list.id]: { ...list, items } } };
-        });
-      },
-    });
-    return () => sortable.destroy();
-  }, [data.currentListId]);
-
-  // Theme handling
-  useEffect(() => {
-    const theme = data.settings?.theme || "auto";
-    const root = document.documentElement;
-    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const dark = theme === "dark" || (theme === "auto" && prefersDark);
-    root.classList.toggle("dark", !!dark);
-  }, [data.settings?.theme]);
-
-  // ---------- Derived values ----------
-  const { totalQty, subtotal, tax, total } = useMemo(() => {
-    const items = currentList?.items || [];
-    const qty = items.reduce((s, it) => s + Number(it.quantity || 0), 0);
-    const sum = items.reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 0), 0);
-    const taxable = data.settings.pricesIncludeTax ? 0 : sum * data.settings.taxRate;
-    const total = data.settings.pricesIncludeTax ? sum : sum + taxable;
-    return { totalQty: qty, subtotal: sum, tax: taxable, total };
-  }, [currentList, data.settings]);
-
-  const budgetProgress = useMemo(() => {
-    const budget = Number(currentList?.budget || 0);
-    if (!budget) return { pct: 0, over: false, remaining: 0 };
-    const pct = Math.min((total / budget) * 100, 100);
-    return { pct, over: total > budget, remaining: Math.max(budget - total, 0), budget };
-  }, [currentList, total]);
-
-  const frequentItems = useMemo(() => {
-    const counts = new Map();
-    Object.values(data.lists).forEach((l) => {
-      (l.items || []).forEach((it) => {
-        const key = it.name.trim().toLowerCase();
-        counts.set(key, (counts.get(key) || 0) + 1);
-      });
-    });
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([name]) => name);
-  }, [data.lists]);
-
-  // ---------- Handlers ----------
-  function setList(id, patch) {
-    setData((d) => ({ ...d, lists: { ...d.lists, [id]: { ...d.lists[id], ...patch } } }));
-  }
-
-  function addItem(e) {
-    e?.preventDefault();
-    if (!currentList) return;
-    const price = Number(newItem.price);
-    const quantity = Number(newItem.quantity || 1);
-    if (!newItem.name.trim() || isNaN(price) || isNaN(quantity) || price < 0 || quantity <= 0) return;
-    const item = { id: genId(), ...newItem, price, quantity, purchased: false, createdAt: new Date().toISOString() };
-    setList(currentList.id, { items: [...currentList.items, item] });
-    setNewItem({ name: "", price: "", quantity: 1, unitName: "", unitSize: "", category: "", store: "", photo: "", barcode: "" });
-  }
-
-  function deleteItem(id) {
-    if (!currentList) return;
-    setList(
-      currentList.id,
-      { items: currentList.items.filter((it) => it.id !== id) }
-    );
-  }
-
-  function togglePurchased(id) {
-    if (!currentList) return;
-    const items = currentList.items.map((it) => (it.id === id ? { ...it, purchased: !it.purchased } : it));
-    setList(currentList.id, { items });
-  }
-
-  function updateItem(id, patch) {
-    if (!currentList) return;
-    const items = currentList.items.map((it) => (it.id === id ? { ...it, ...patch } : it));
-    setList(currentList.id, { items });
-  }
-
-  function createList(name) {
-    const id = genId();
-    setData((d) => ({
-      ...d,
-      lists: { ...d.lists, [id]: { id, name, createdAt: new Date().toISOString(), groupId: null, budget: 0, store: "", items: [] } },
-      currentListId: id,
-    }));
-  }
-
-  function deleteList() {
-    if (!currentList) return;
-    if (!confirm(`Delete list "${currentList.name}"?`)) return;
-    setData((d) => {
-      const lists = { ...d.lists };
-      delete lists[currentList.id];
-      const nextId = Object.keys(lists)[0] || null;
-      return { ...d, lists, currentListId: nextId };
-    });
-  }
-
-  function createGroup(name) {
-    const id = genId();
-    setData((d) => ({ ...d, groups: { ...d.groups, [id]: { id, name } } }));
-  }
-
-  function assignListToGroup(listId, groupId) {
-    setList(listId, { groupId: groupId || null });
-  }
-
-  // ---------- Barcode Scanner ----------
-  useEffect(() => {
-    if (!scannerOpen) return;
-    let active = true;
-    let scanner;
-    (async () => {
-      try {
-        setScannerLoading(true);
-        const id = "qr-reader";
-        scanner = new Html5Qrcode(id);
-        setHtml5Qr(scanner);
-        await scanner.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 150 } },
-          async (decoded) => {
-            if (!active) return;
-            // Stop quickly to avoid double fires
-            try { await scanner.stop(); } catch {}
-            setScannerOpen(false);
-            fetchOpenFoodFacts(decoded);
-          },
-          () => {}
-        );
-      } catch (e) {
-        console.error(e);
-        alert("Could not start camera scanner. You can still type the item.");
-        setScannerOpen(false);
-      } finally {
-        setScannerLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-      (async () => {
-        try { await scanner?.stop(); } catch {}
-        try { await scanner?.clear(); } catch {}
-      })();
-    };
-  }, [scannerOpen]);
-
-  async function fetchOpenFoodFacts(code) {
-    try {
-      const r = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
-      const j = await r.json();
-      if (j?.status === 1 && j.product) {
-        const p = j.product;
-        setNewItem((ni) => ({
-          ...ni,
-          name: p.product_name || p.generic_name || ni.name || "Unknown Product",
-          photo: p.image_front_url || p.image_url || ni.photo || "",
-          barcode: code,
-        }));
-      } else {
-        alert("Barcode not found. Enter manually.");
-      }
-    } catch (e) {
-      alert("Lookup failed. Enter manually.");
-    }
-  }
-
-  // ---------- Import/Export ----------
-  function download(name, content, type = "application/json") {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([content], { type }));
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  function exportAll() {
-    download("ShopTallyPro_Backup.json", JSON.stringify(data, null, 2));
-  }
-
-  function exportViewCSV() {
-    const lists = Object.values(data.lists);
-    let rows = [
-      ["List","Item","Price","Qty","UnitSize","Unit","Category","Store","Purchased","CreatedAt","Photo","Barcode"].join(","),
-    ];
-    lists.forEach((l) => l.items.forEach((it) => {
-      rows.push([
-        esc(l.name), esc(it.name), it.price, it.quantity, esc(it.unitSize||""), esc(it.unitName||""), esc(it.category||""), esc(it.store||""), it.purchased ? 1 : 0, esc(it.createdAt||""), esc(it.photo||""), esc(it.barcode||"")
-      ].join(","));
-    }));
-    download("ShopTallyPro_View.csv", rows.join("\r\n"), "text/csv;charset=utf-8");
-  }
-
-  function esc(s){
-    const str = String(s ?? "");
-    if (str.includes(",") || str.includes("\n") || str.includes('"')) {
-      return '"' + str.replaceAll('"', '""') + '"';
-    }
-    return str;
-  }
-
-  async function importAll(file) {
-    if (!file) return;
-    const text = await file.text();
-    try {
-      const incoming = JSON.parse(text);
-      if (!incoming?.lists) throw new Error("Invalid backup file");
-      // Merge with ID re-mapping to avoid collisions by name
-      const nameTaken = new Set(Object.values(data.lists).map((l) => l.name));
-      const newLists = {};
-      const idMap = new Map();
-      Object.values(incoming.lists).forEach((l) => {
-        let name = l.name;
-        let i = 1;
-        while (nameTaken.has(name)) { name = `${l.name} (Imported ${i++})`; }
-        nameTaken.add(name);
-        const id = genId();
-        idMap.set(l.id, id);
-        newLists[id] = { ...l, id, name };
-      });
-      const newGroups = {};
-      Object.values(incoming.groups || {}).forEach((g) => {
-        const id = genId();
-        newGroups[id] = { id, name: g.name };
-      });
-      // Remap groupIds
-      Object.values(newLists).forEach((l) => { l.groupId = null; });
-      setData((d) => ({
-        ...d,
-        lists: { ...d.lists, ...newLists },
-        groups: { ...d.groups, ...newGroups },
-      }));
-      alert("Import complete.");
-    } catch (e) {
-      alert("Import failed.");
-    }
-  }
-
-  // ---------- Keyboard Shortcuts ----------
-  useEffect(() => {
-    function onKey(e){
-      if (e.target.closest("input,textarea,select")) return;
-      if (e.key.toLowerCase() === "n") document.getElementById("nameInput")?.focus();
-      if (e.key.toLowerCase() === "s") setScannerOpen(true);
-      if (e.key.toLowerCase() === "f") document.getElementById("searchInput")?.focus();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  // ---------- Filters & search ----------
-  const [query, setQuery] = useState("");
-  const [showOnlyUnpurchased, setShowOnlyUnpurchased] = useState(false);
-  const [sortKey, setSortKey] = useState("createdAt"); // price | name | createdAt
-
-  const visibleItems = useMemo(() => {
-    let items = currentList?.items || [];
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      items = items.filter((it) => it.name.toLowerCase().includes(q) || (it.category||"").toLowerCase().includes(q));
-    }
-    if (showOnlyUnpurchased) items = items.filter((it) => !it.purchased);
-    items = [...items];
-    if (sortKey === "price") items.sort((a,b) => (a.price*a.quantity) - (b.price*b.quantity));
-    if (sortKey === "name") items.sort((a,b) => a.name.localeCompare(b.name));
-    if (sortKey === "createdAt") items.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
-    return items;
-  }, [currentList, query, showOnlyUnpurchased, sortKey]);
-
-  // ---------- Analytics ----------
-  const analytics = useMemo(() => {
-    const lists = Object.values(data.lists);
-    const byList = lists.map((l) => ({
-      name: l.name,
-      date: l.createdAt,
-      total: l.items.reduce((s, it) => s + Number(it.price||0) * Number(it.quantity||0), 0),
-    })).sort((a,b) => new Date(a.date) - new Date(b.date));
-
-    const catMap = new Map();
-    lists.forEach((l) => l.items.forEach((it) => catMap.set(it.category || "Uncategorized", (catMap.get(it.category || "Uncategorized")||0) + Number(it.price||0) * Number(it.quantity||0))));
-    const byCat = Array.from(catMap, ([name, total]) => ({ name, total }));
-
-    const storeMap = new Map();
-    lists.forEach((l) => l.items.forEach((it) => storeMap.set(it.store || "—", (storeMap.get(it.store || "—")||0) + Number(it.price||0) * Number(it.quantity||0))));
-    const byStore = Array.from(storeMap, ([name, total]) => ({ name, total }));
-
-    return { byList, byCat, byStore };
-  }, [data.lists]);
-
-  // ---------- UI ----------
-  return (
-    <div className="w-full max-w-md mx-auto bg-white dark:bg-zinc-900 dark:text-zinc-100 rounded-2xl shadow-xl p-3 sm:p-4">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <select
-          className="flex-1 rounded-xl border px-3 py-2 bg-white dark:bg-zinc-800"
-          value={data.currentListId || ""}
-          onChange={(e) => setData((d) => ({ ...d, currentListId: e.target.value }))}
-        >
-          {Object.values(data.groups).length > 0 && (
-            <optgroup label="Groups" />
-          )}
-          {Object.values(data.groups)
-            .sort((a,b)=>a.name.localeCompare(b.name))
-            .map((g) => (
-              <optgroup key={g.id} label={g.name}>
-                {Object.values(data.lists)
-                  .filter((l) => l.groupId === g.id)
-                  .sort((a,b)=>a.name.localeCompare(b.name))
-                  .map((l) => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-              </optgroup>
-            ))}
-          <optgroup label="Ungrouped">
-            {Object.values(data.lists)
-              .filter((l) => !l.groupId)
-              .sort((a,b)=>a.name.localeCompare(b.name))
-              .map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-          </optgroup>
-        </select>
-        <button
-          className="p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700"
-          onClick={() => {
-            const name = prompt("New list name");
-            if (name?.trim()) createList(name.trim());
-          }}
-          title="New List"
-        >
-          <Plus size={18} />
-        </button>
-        <button className="p-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700" onClick={deleteList} title="Delete List">
-          <Trash2 size={18} />
-        </button>
-      </div>
-
-      {/* Meta row */}
-      <div className="flex gap-2 mb-3">
-        <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-white py-2 hover:bg-blue-700" onClick={() => (document.getElementById("groupsModal").showModal())}>
-          <FolderGit2 size={18} /> Groups
-        </button>
-        <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-sky-600 text-white py-2 hover:bg-sky-700" onClick={() => (document.getElementById("analyticsModal").showModal())}>
-          <BarChart3 size={18} /> Analytics
-        </button>
-        <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-zinc-800 text-white py-2 hover:bg-zinc-900" onClick={() => (document.getElementById("settingsModal").showModal())}>
-          <SettingsIcon size={18} /> Settings
-        </button>
-      </div>
-
-      {/* Header analytics */}
-      <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-800 p-3 mb-3">
-        <div className="grid grid-cols-3 text-center gap-2">
-          <div>
-            <div className="text-xs uppercase tracking-wide opacity-70">Items</div>
-            <div className="text-lg font-semibold">{totalQty}</div>
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-wide opacity-70">Subtotal</div>
-            <div className="text-lg font-semibold">{currencyFmt(subtotal, data.settings.currency)}</div>
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-wide opacity-70">Total</div>
-            <div className={`text-lg font-semibold ${budgetProgress.over ? "text-rose-600" : ""}`}>{currencyFmt(total, data.settings.currency)}</div>
-          </div>
-        </div>
-        {/* Budget bar */}
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs mb-1 opacity-70">
-            <span>Budget</span>
-            <span>
-              {currencyFmt(currentList?.budget || 0, data.settings.currency)}
-              {currentList?.budget ? (
-                <>
-                  {" "}• {budgetProgress.over ? "Over by" : "Left"} {currencyFmt(budgetProgress.over ? (total - (currentList?.budget||0)) : budgetProgress.remaining, data.settings.currency)}
-                </>
-              ) : (
-                <span className="opacity-60"> (not set)</span>
-              )}
-            </span>
-          </div>
-          <div className="h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-            <div
-              className={`h-2 ${budgetProgress.over ? "bg-rose-600" : "bg-emerald-600"}`}
-              style={{ width: `${budgetProgress.pct}%` }}
-            />
-          </div>
-        </div>
-        {!data.settings.pricesIncludeTax && (
-          <div className="mt-2 text-xs opacity-70 flex items-center gap-2">
-            <DollarSign size={14} /> Tax est.: {currencyFmt(tax, data.settings.currency)} at {(data.settings.taxRate * 100).toFixed(1)}%
-          </div>
-        )}
-      </div>
-
-      {/* Add item */}
-      <form onSubmit={addItem} className="rounded-2xl bg-white dark:bg-zinc-800 shadow p-3 mb-3">
-        <div className="flex items-center gap-2 mb-2">
-          <input id="nameInput" className="flex-1 rounded-xl border px-3 py-2 bg-white dark:bg-zinc-900" placeholder="Item name" value={newItem.name} onChange={(e)=>setNewItem({...newItem,name:e.target.value})} required />
-          <button type="button" className="p-2 rounded-xl bg-zinc-200 dark:bg-zinc-700" onClick={()=>setScannerOpen(true)} title="Scan barcode">
-            <ScanLine size={18} />
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          <input type="number" min="0" step="0.01" className="rounded-xl border px-3 py-2 bg-white dark:bg-zinc-900" placeholder="Price" value={newItem.price} onChange={(e)=>setNewItem({...newItem,price:e.target.value})} required />
-          <input type="number" min="1" step="1" className="rounded-xl border px-3 py-2 bg-white dark:bg-zinc-900" placeholder="Qty" value={newItem.quantity} onChange={(e)=>setNewItem({...newItem,quantity:Number(e.target.value)})} required />
-          <input className="rounded-xl border px-3 py-2 bg-white dark:bg-zinc-900" placeholder="Category" value={newItem.category} onChange={(e)=>setNewItem({...newItem,category:e.target.value})} />
-        </div>
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          <input className="rounded-xl border px-3 py-2 bg-white dark:bg-zinc-900" placeholder="Unit size (e.g., 500)" value={newItem.unitSize} onChange={(e)=>setNewItem({...newItem,unitSize:e.target.value})} />
-          <input className="rounded-xl border px-3 py-2 bg-white dark:bg-zinc-900" placeholder="Unit (g, kg, L)" value={newItem.unitName} onChange={(e)=>setNewItem({...newItem,unitName:e.target.value})} />
-          <input className="rounded-xl border px-3 py-2 bg-white dark:bg-zinc-900" placeholder="Store" value={newItem.store} onChange={(e)=>setNewItem({...newItem,store:e.target.value})} />
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <Camera size={16} />
-            <input type="file" accept="image/*" className="hidden" onChange={async (e)=>{
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const dataUrl = await fileToDataUrl(f);
-              setNewItem((ni)=>({ ...ni, photo: dataUrl }));
-            }} />
-            <span>{newItem.photo ? "Change photo" : "Add photo (optional)"}</span>
-          </label>
-          <div className="ml-auto flex items-center gap-2">
-            <button type="button" className="px-3 py-2 rounded-xl bg-zinc-200 dark:bg-zinc-700" onClick={() => (
-              setNewItem({ name: "", price: "", quantity: 1, unitName: "", unitSize: "", category: "", store: "", photo: "", barcode: "" })
-            )}>Clear</button>
-            <button type="submit" className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-2">
-              <Plus size={16}/> Add
-            </button>
-          </div>
-        </div>
-        {frequentItems.length > 0 && (
-          <div className="mt-3 text-xs">
-            <div className="opacity-60 mb-1">Quick add:</div>
-            <div className="flex flex-wrap gap-2">
-              {frequentItems.map((n) => (
-                <button key={n} type="button" className="px-2 py-1 rounded-full bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200" onClick={()=>setNewItem((ni)=>({...ni,name:n}))}>{n}</button>
-              ))}
+    <div class="app-container">
+        <header>
+            <div class="header-row">
+                <select id="list-selector"></select>
+                <button class="btn icon-btn" id="new-list-btn" title="New List">+</button>
+                <button class="btn btn-danger icon-btn" id="delete-list-btn" title="Delete Selected List">🗑️</button>
             </div>
-          </div>
-        )}
-      </form>
+            <div class="header-row">
+                <button class="btn btn-secondary btn-small" id="manage-groups-btn">🗂️ Groups</button>
+                <button class="btn btn-secondary btn-small" id="global-analytics-btn">📈 Analytics</button>
+                <button class="btn btn-secondary btn-small" id="settings-btn">⚙️ Settings</button>
+            </div>
+        </header>
 
-      {/* Search / Filters */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="flex items-center gap-2 flex-1 rounded-xl border px-2 py-1 bg-white dark:bg-zinc-800">
-          <Search size={16} className="opacity-60"/>
-          <input id="searchInput" className="flex-1 bg-transparent outline-none" placeholder="Search name or category" value={query} onChange={(e)=>setQuery(e.target.value)}/>
+        <div class="analytics-header">
+            <div class="metric">Total Items <span id="total-items">0</span></div>
+            <div class="metric">Total Spent <span id="total-spent">$0.00</span></div>
+            <div class="metric">Avg. Price <span id="avg-price">$0.00</span></div>
         </div>
-        <select className="rounded-xl border px-2 py-2 bg-white dark:bg-zinc-800" value={sortKey} onChange={(e)=>setSortKey(e.target.value)}>
-          <option value="createdAt">Newest</option>
-          <option value="name">Name</option>
-          <option value="price">Price</option>
-        </select>
-        <label className="text-sm flex items-center gap-1 cursor-pointer">
-          <input type="checkbox" checked={showOnlyUnpurchased} onChange={(e)=>setShowOnlyUnpurchased(e.target.checked)} />
-          Unpurchased
-        </label>
-      </div>
 
-      {/* Items list */}
-      <div ref={listRef} className="grid gap-2">
-        {visibleItems.map((it) => {
-          const perUnit = it.unitSize && it.unitName ? Number(it.price||0) / Number(it.unitSize||1) : null;
-          return (
-            <div className="flex items-center gap-3 rounded-2xl bg-white dark:bg-zinc-800 shadow p-2" key={it.id}>
-              <button className="drag cursor-grab text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"><GripVertical size={18}/></button>
-              <button className="rounded-full p-1" onClick={()=>togglePurchased(it.id)} title={it.purchased?"Mark as needed":"Mark as purchased"}>
-                {it.purchased ? <CheckCircle2 className="text-emerald-600"/> : <Circle className="text-zinc-400"/>}
-              </button>
-              <img src={it.photo || "https://via.placeholder.com/60"} alt="thumb" className="w-12 h-12 rounded-xl object-cover"/>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <div className="truncate font-semibold">{it.name} {it.quantity>1 && <span className="opacity-70">×{it.quantity}</span>}</div>
-                  <div className="font-semibold">{currencyFmt(Number(it.price)*Number(it.quantity), data.settings.currency)}</div>
-                </div>
-                <div className="text-xs opacity-70 flex items-center gap-2 truncate">
-                  {it.category && <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-700">{it.category}</span>}
-                  {it.store && <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-700">{it.store}</span>}
-                  {perUnit && <span>({currencyFmt(perUnit, data.settings.currency)}/{it.unitName})</span>}
-                </div>
-              </div>
-              <button className="p-2 rounded-xl bg-zinc-200 dark:bg-zinc-700" title="Edit" onClick={() => {
-                const name = prompt("Edit name", it.name) ?? it.name;
-                const price = Number(prompt("Edit price", String(it.price)) ?? it.price);
-                const qty = Number(prompt("Edit quantity", String(it.quantity)) ?? it.quantity);
-                if (!name.trim() || isNaN(price) || isNaN(qty) || qty<=0 || price<0) return;
-                updateItem(it.id, { name: name.trim(), price, quantity: qty });
-              }}>
-                <Edit3 size={16}/>
-              </button>
-              <button className="p-2 rounded-xl bg-rose-600 text-white" title="Delete" onClick={()=>deleteItem(it.id)}>
-                <Trash2 size={16}/>
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Footer / quick actions */}
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <button className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white py-2 hover:bg-emerald-700" onClick={()=>{
-          if (!currentList) return;
-          const budget = Number(prompt("Set list budget (amount)", String(currentList.budget || 0)) ?? currentList.budget);
-          if (!isNaN(budget) && budget >= 0) setList(currentList.id, { budget });
-        }}>
-          <ShoppingCart size={18}/> Set Budget
-        </button>
-        <button className="flex items-center justify-center gap-2 rounded-xl bg-zinc-700 text-white py-2 hover:bg-zinc-800" onClick={()=>{
-          // Mark all unpurchased as purchased
-          if (!currentList) return;
-          const items = currentList.items.map((it)=> it.purchased ? it : { ...it, purchased: true });
-          setList(currentList.id, { items });
-        }}>
-          <CheckCircle2 size={18}/> Checkout All
-        </button>
-      </div>
-
-      {/* Scanner Modal */}
-      {scannerOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="font-semibold flex items-center gap-2"><ScanLine size={18}/> Scan Barcode</div>
-              <button className="px-2 py-1 rounded-lg bg-zinc-200 dark:bg-zinc-700" onClick={()=>setScannerOpen(false)}>Close</button>
-            </div>
-            <div id="qr-reader" ref={qrRef} className="rounded-xl overflow-hidden border h-56"/>
-            {scannerLoading && <div className="text-center text-sm opacity-70 mt-2">Starting camera…</div>}
-          </div>
-        </div>
-      )}
-
-      {/* Groups Modal */}
-      <dialog id="groupsModal" className="rounded-2xl p-0 w-full max-w-md bg-white dark:bg-zinc-900">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold text-lg flex items-center gap-2"><FolderGit2 size={18}/> Manage Groups</div>
-            <button className="px-2 py-1 rounded-lg bg-zinc-200 dark:bg-zinc-700" onClick={()=>document.getElementById("groupsModal").close()}>Close</button>
-          </div>
-          <div className="flex items-center gap-2 mb-3">
-            <input id="newGroupName" className="flex-1 rounded-xl border px-3 py-2 bg-white dark:bg-zinc-800" placeholder="New group name"/>
-            <button className="px-3 py-2 rounded-xl bg-indigo-600 text-white" onClick={()=>{
-              const name = document.getElementById("newGroupName").value.trim();
-              if (!name) return;
-              createGroup(name);
-              document.getElementById("newGroupName").value = "";
-            }}>Create</button>
-          </div>
-          <div className="space-y-2 max-h-80 overflow-auto">
-            {Object.values(data.lists).sort((a,b)=>a.name.localeCompare(b.name)).map((l)=>(
-              <div key={l.id} className="flex items-center justify-between rounded-xl border p-2">
-                <div className="font-medium">{l.name}</div>
-                <select className="rounded-lg border px-2 py-1 bg-white dark:bg-zinc-800" value={l.groupId || ""} onChange={(e)=>assignListToGroup(l.id, e.target.value || null)}>
-                  <option value="">(Ungrouped)</option>
-                  {Object.values(data.groups).sort((a,b)=>a.name.localeCompare(b.name)).map((g)=>(<option key={g.id} value={g.id}>{g.name}</option>))}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
-      </dialog>
-
-      {/* Analytics Modal */}
-      <dialog id="analyticsModal" className="rounded-2xl p-0 w-full max-w-md bg-white dark:bg-zinc-900">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold text-lg flex items-center gap-2"><BarChart3 size={18}/> Analytics</div>
-            <button className="px-2 py-1 rounded-lg bg-zinc-200 dark:bg-zinc-700" onClick={()=>document.getElementById("analyticsModal").close()}>Close</button>
-          </div>
-
-          <div className="space-y-6">
-            <div>
-              <div className="text-sm mb-1 opacity-70">Spend by list (chronological)</div>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={analytics.byList} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="name" hide={false} interval={0} angle={-10} textAnchor="end" height={40}/>
-                    <YAxis tickFormatter={(v)=>currencyFmt(v, data.settings.currency)} width={60} />
-                    <Tooltip formatter={(v)=>currencyFmt(v, data.settings.currency)} />
-                    <Line type="monotone" dataKey="total" stroke="#8e44ad" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <div className="text-sm mb-1 opacity-70">Spend by category</div>
-                <div className="h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={analytics.byCat} dataKey="total" nameKey="name" innerRadius={40} outerRadius={70}>
-                        {analytics.byCat.map((_, i) => (
-                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Legend verticalAlign="bottom" height={24}/>
-                      <Tooltip formatter={(v)=>currencyFmt(v, data.settings.currency)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div>
-                <div className="text-sm mb-1 opacity-70">Spend by store</div>
-                <div className="h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.byStore} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                      <XAxis dataKey="name" interval={0} angle={-10} textAnchor="end" height={40}/>
-                      <YAxis tickFormatter={(v)=>currencyFmt(v, data.settings.currency)} width={60} />
-                      <Tooltip formatter={(v)=>currencyFmt(v, data.settings.currency)} />
-                      <Bar dataKey="total" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2">
-              <button className="px-3 py-2 rounded-xl bg-zinc-200 dark:bg-zinc-700 flex items-center gap-2" onClick={exportViewCSV}>
-                <Download size={16}/> Export CSV
-              </button>
-              <button className="px-3 py-2 rounded-xl bg-zinc-200 dark:bg-zinc-700 flex items-center gap-2" onClick={exportAll}>
-                <Download size={16}/> Backup JSON
-              </button>
-            </div>
-          </div>
-        </div>
-      </dialog>
-
-      {/* Settings Modal */}
-      <dialog id="settingsModal" className="rounded-2xl p-0 w-full max-w-md bg-white dark:bg-zinc-900">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold text-lg flex items-center gap-2"><SettingsIcon size={18}/> Settings & Data</div>
-            <button className="px-2 py-1 rounded-lg bg-zinc-200 dark:bg-zinc-700" onClick={()=>document.getElementById("settingsModal").close()}>Close</button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-sm">Currency
-                <select className="w-full rounded-xl border px-2 py-2 bg-white dark:bg-zinc-800" value={data.settings.currency} onChange={(e)=>setData((d)=>({...d, settings:{...d.settings,currency:e.target.value}}))}>
-                  {"USD,EUR,CAD,GBP,AUD,NZD,JPY,CHF,SEK".split(",").map((c)=>(<option key={c} value={c}>{c}</option>))}
-                </select>
-              </label>
-              <label className="text-sm">Theme
-                <select className="w-full rounded-xl border px-2 py-2 bg-white dark:bg-zinc-800" value={data.settings.theme} onChange={(e)=>setData((d)=>({...d, settings:{...d.settings,theme:e.target.value}}))}>
-                  <option value="auto">Auto</option>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
-              </label>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-sm">Tax rate (%)
-                <input type="number" min="0" step="0.01" className="w-full rounded-xl border px-3 py-2 bg-white dark:bg-zinc-800" value={(data.settings.taxRate*100).toString()} onChange={(e)=>{
-                  const v = Number(e.target.value); if (isNaN(v)||v<0) return; setData((d)=>({...d, settings:{...d.settings, taxRate: v/100}}));
-                }}/>
-              </label>
-              <label className="text-sm flex items-center gap-2">Prices include tax?
-                <input type="checkbox" checked={data.settings.pricesIncludeTax} onChange={(e)=>setData((d)=>({...d, settings:{...d.settings, pricesIncludeTax:e.target.checked}}))}/>
-              </label>
-            </div>
-
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700"/>
-
-            <div className="text-sm">Data Management</div>
-            <div className="flex items-center gap-2">
-              <label className="px-3 py-2 rounded-xl bg-zinc-200 dark:bg-zinc-700 cursor-pointer flex items-center gap-2">
-                <Upload size={16}/> Import JSON
-                <input type="file" className="hidden" accept="application/json" onChange={(e)=>importAll(e.target.files?.[0])}/>
-              </label>
-              <button className="px-3 py-2 rounded-xl bg-zinc-200 dark:bg-zinc-700" onClick={exportAll}><Download size={16}/> Backup</button>
-              <button className="px-3 py-2 rounded-xl bg-rose-600 text-white" onClick={()=>{
-                if (confirm("Wipe ALL local data? This cannot be undone.")) {
-                  setData(DEFAULT_STATE);
-                }
-              }}>Factory Reset</button>
-            </div>
-          </div>
-        </div>
-      </dialog>
-
-      {/* Tiny credits */}
-      <div className="text-[10px] text-center opacity-60 mt-4">ShopTally Pro · Local-first · v1</div>
+        <main>
+            <div id="barcode-scanner-container"><div id="barcode-reader"></div><button class="btn btn-danger" style="width: 100%; margin-top: 10px;" id="close-scanner-btn">Close Scanner</button></div>
+            <form class="add-item-form" id="add-item-form"><div class="form-row"><div class="form-group" style="flex-grow: 4;"><label for="item-name">Item Name</label><input type="text" id="item-name" required></div><div class="form-group"><label> </label><button type="button" class="btn icon-btn" id="scan-barcode-btn" title="Scan Barcode">📷</button></div></div><div class="form-row"><div class="form-group"><label for="item-price">Price</label><input type="number" id="item-price" step="0.01" min="0" required></div><div class="form-group"><label for="item-quantity">Quantity</label><input type="number" id="item-quantity" value="1" min="1" required></div></div><div class="form-group"><label for="item-photo">Price Tag Photo (Optional)</label><input type="file" id="item-photo" accept="image/*"><img id="photo-preview" src="" alt="Photo Preview"></div><button type="submit" class="btn" style="width: 100%;">Add Item</button></form>
+            <h2 id="current-list-title"></h2>
+            <div id="item-list"></div>
+        </main>
     </div>
-  );
-}
+
+    <!-- MODALS -->
+    <div id="new-list-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Create New List</h2><span class="close-btn">×</span></div><div class="modal-body"><input type="text" id="new-list-name" placeholder="e.g., Weekly Groceries"></div><div class="modal-footer"><button class="btn" id="create-list-btn" style="width:100%;">Create List</button></div></div></div>
+    <div id="edit-item-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Edit Item</h2><span class="close-btn">×</span></div><div class="modal-body"><input type="hidden" id="edit-item-id"><div class="form-group"><label for="edit-item-name">Item Name</label><input type="text" id="edit-item-name" required></div><div class="form-row"><div class="form-group"><label for="edit-item-price">Price</label><input type="number" id="edit-item-price" step="0.01" min="0" required></div><div class="form-group"><label for="edit-item-quantity">Quantity</label><input type="number" id="edit-item-quantity" min="1" required></div></div><div class="form-group"><label for="edit-item-photo">Change Photo</label><input type="file" id="edit-item-photo" accept="image/*"><img id="edit-photo-preview" src="" style="max-width:100px; margin-top:10px; border-radius: var(--border-radius);"></div></div><div class="modal-footer"><button class="btn" id="save-item-changes-btn" style="width:100%;">Save Changes</button></div></div></div>
+    <div id="manage-groups-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Manage Groups</h2><span class="close-btn">×</span></div><div class="modal-body"><h3>Create New Group</h3><div class="form-row"><input type="text" id="new-group-name" placeholder="e.g., Vacation Prep"><button class="btn" id="create-group-btn">Create</button></div><hr style="margin: 20px 0;"><h3>Assign Lists to Groups</h3><ul id="list-group-assignments" class="management-list"></ul></div></div></div>
+    <div id="global-analytics-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Global Analytics</h2><span class="close-btn">×</span></div><div class="modal-body"><div class="chart-container"><canvas id="spending-chart"></canvas></div><div id="global-analytics-content"></div></div><div class="modal-footer"><button class="btn btn-secondary" id="filter-analytics-btn">Filter Data</button><button class="btn" id="export-view-json-btn">Export View (JSON)</button><button class="btn" id="export-view-csv-btn">Export View (CSV)</button></div></div></div>
+    <div id="analytics-filter-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Filter Analytics Data</h2><span class="close-btn">×</span></div><div id="filter-options-list" class="modal-body"></div><div class="modal-footer"><button class="btn" id="apply-analytics-filter-btn" style="width:100%;">Apply Filter</button></div></div></div>
+    <div id="settings-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Settings & Data</h2><span class="close-btn">×</span></div><div class="modal-body"><h3>Data Management</h3><p>Backup all lists, groups, and items to a single file.</p><button class="btn" id="backup-all-data-btn" style="width:100%;">Backup All Data</button><br><br><p>Import data from a backup file. This will merge with your existing data.</p><label for="import-data-input" class="btn btn-secondary" style="text-align:center; display:block;">Select Import File</label><input type="file" id="import-data-input" accept=".json" style="display:none;"></div></div></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- App State ---
+        let appData = { lists: {}, groups: {}, currentListId: null };
+        let currentAnalyticsFilter = { type: 'all', ids: { groups: [], lists: [] } };
+        let sortableInstance = null, html5QrCode = null, analyticsChart = null;
+
+        // --- DOM Elements ---
+        const listSelector = document.getElementById('list-selector');
+        const currentListTitle = document.getElementById('current-list-title');
+        const itemListEl = document.getElementById('item-list');
+        const addItemForm = document.getElementById('add-item-form');
+        const totalItemsEl = document.getElementById('total-items');
+        const totalSpentEl = document.getElementById('total-spent');
+        const avgPriceEl = document.getElementById('avg-price');
+        const scannerContainer = document.getElementById('barcode-scanner-container');
+        // Buttons
+        const newListBtn = document.getElementById('new-list-btn');
+        const deleteListBtn = document.getElementById('delete-list-btn');
+        const manageGroupsBtn = document.getElementById('manage-groups-btn');
+        const globalAnalyticsBtn = document.getElementById('global-analytics-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        const scanBarcodeBtn = document.getElementById('scan-barcode-btn');
+        const closeScannerBtn = document.getElementById('close-scanner-btn');
+        // Modals
+        const newListModal = document.getElementById('new-list-modal');
+        const editItemModal = document.getElementById('edit-item-modal');
+        const manageGroupsModal = document.getElementById('manage-groups-modal');
+        const globalAnalyticsModal = document.getElementById('global-analytics-modal');
+        const analyticsFilterModal = document.getElementById('analytics-filter-modal');
+        const settingsModal = document.getElementById('settings-modal');
+        
+        // --- Data Functions ---
+        const loadData = () => { if (localStorage.getItem('shoppingAppV3')) appData = JSON.parse(localStorage.getItem('shoppingAppV3')); };
+        const saveData = () => localStorage.setItem('shoppingAppV3', JSON.stringify(appData));
+        const generateId = () => Date.now().toString() + Math.random().toString(36).substr(2, 9);
+
+        // --- Initialization ---
+        function initialize() {
+            loadData();
+            if (Object.keys(appData.lists).length === 0) {
+                const firstListId = generateId();
+                appData.lists[firstListId] = { id: firstListId, name: "My First List", items: [], createdAt: new Date().toISOString(), groupId: null };
+                appData.currentListId = firstListId;
+            }
+            if (!appData.groups) appData.groups = {};
+            appData.currentListId = appData.currentListId || Object.keys(appData.lists)[0] || null;
+            
+            html5QrCode = new Html5Qrcode("barcode-reader");
+            setupEventListeners();
+            initializeSortable();
+            renderUI();
+        }
+
+        // --- UI Rendering ---
+        function renderUI() {
+            const currentList = appData.lists[appData.currentListId];
+            currentListTitle.textContent = currentList ? currentList.name : "No lists exist.";
+            if (!currentList) itemListEl.innerHTML = '';
+            renderListSelector();
+            renderItems();
+            updateHeaderAnalytics();
+        }
+
+        function renderListSelector() {
+            listSelector.innerHTML = '';
+            const sortedGroups = Object.values(appData.groups).sort((a,b) => a.name.localeCompare(b.name));
+            const groupedLists = {};
+            sortedGroups.forEach(group => groupedLists[group.id] = []);
+            const ungroupedLists = [];
+            Object.values(appData.lists).forEach(list => (list.groupId && appData.groups[list.groupId]) ? groupedLists[list.groupId].push(list) : ungroupedLists.push(list));
+            sortedGroups.forEach(group => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = group.name;
+                groupedLists[group.id].sort((a,b) => a.name.localeCompare(b.name)).forEach(list => optgroup.appendChild(createOption(list)));
+                listSelector.appendChild(optgroup);
+            });
+            if (ungroupedLists.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = "Ungrouped";
+                ungroupedLists.sort((a,b) => a.name.localeCompare(b.name)).forEach(list => optgroup.appendChild(createOption(list)));
+                listSelector.appendChild(optgroup);
+            }
+            function createOption(list) { const opt = document.createElement('option'); opt.value = list.id; opt.textContent = list.name; if (list.id === appData.currentListId) opt.selected = true; return opt; }
+            deleteListBtn.style.display = Object.keys(appData.lists).length > 0 ? 'flex' : 'none';
+        }
+        
+        function renderItems() {
+            itemListEl.innerHTML = '';
+            const currentList = appData.lists[appData.currentListId];
+            if (!currentList) return;
+            currentList.items.forEach(item => {
+                const itemCard = document.createElement('div');
+                itemCard.className = 'item-card'; itemCard.dataset.id = item.id;
+                const quantityText = item.quantity > 1 ? ` (x${item.quantity})` : '';
+                itemCard.innerHTML = `<span class="drag-handle" title="Drag to reorder">⠿</span><img src="${item.photo || 'https://via.placeholder.com/60'}" alt="${item.name}"><div class="item-info"><h3>${item.name}${quantityText}</h3><p>$${(parseFloat(item.price) * item.quantity).toFixed(2)}</p></div><div class="item-actions"><button class="btn icon-btn btn-secondary edit-item-btn" title="Edit Item">✏️</button><button class="btn icon-btn btn-danger delete-item-btn" title="Delete Item">🗑️</button></div>`;
+                itemListEl.appendChild(itemCard);
+            });
+        }
+        
+        function updateHeaderAnalytics() {
+            const currentList = appData.lists[appData.currentListId];
+            if (!currentList) { totalItemsEl.textContent = '0'; totalSpentEl.textContent = '$0.00'; avgPriceEl.textContent = '$0.00'; return; }
+            const items = currentList.items;
+            const totalIndividualItems = items.reduce((sum, item) => sum + item.quantity, 0);
+            const totalSpent = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+            const avgPrice = totalIndividualItems > 0 ? totalSpent / totalIndividualItems : 0;
+            totalItemsEl.textContent = totalIndividualItems; totalSpentEl.textContent = `$${totalSpent.toFixed(2)}`; avgPriceEl.textContent = `$${avgPrice.toFixed(2)}`;
+        }
+
+        function setupEventListeners() {
+            listSelector.addEventListener('change', () => { appData.currentListId = listSelector.value; saveData(); renderUI(); });
+            addItemForm.addEventListener('submit', handleAddItem);
+            document.querySelectorAll('.modal .close-btn').forEach(btn => btn.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none'));
+            window.addEventListener('click', (e) => { document.querySelectorAll('.modal').forEach(modal => { if (e.target === modal) modal.style.display = 'none'; }); });
+            newListBtn.addEventListener('click', () => { newListModal.style.display = 'flex'; });
+            deleteListBtn.addEventListener('click', handleDeleteList);
+            manageGroupsBtn.addEventListener('click', openGroupManager);
+            globalAnalyticsBtn.addEventListener('click', () => openGlobalAnalytics());
+            settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
+            document.getElementById('create-list-btn').addEventListener('click', handleCreateList);
+            document.getElementById('save-item-changes-btn').addEventListener('click', handleSaveChanges);
+            document.getElementById('create-group-btn').addEventListener('click', handleCreateGroup);
+            document.getElementById('list-group-assignments').addEventListener('change', handleAssignListToGroup);
+            document.getElementById('filter-analytics-btn').addEventListener('click', openAnalyticsFilterModal);
+            document.getElementById('apply-analytics-filter-btn').addEventListener('click', handleApplyFilter);
+            document.getElementById('export-view-json-btn').addEventListener('click', () => handleExportView('json'));
+            document.getElementById('export-view-csv-btn').addEventListener('click', () => handleExportView('csv'));
+            document.getElementById('backup-all-data-btn').addEventListener('click', handleBackupAllData);
+            document.getElementById('import-data-input').addEventListener('change', handleImportData);
+            itemListEl.addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('.delete-item-btn');
+                const editBtn = e.target.closest('.edit-item-btn');
+                if (deleteBtn) handleDeleteItem(e.target.closest('.item-card').dataset.id);
+                if (editBtn) openEditItemModal(e.target.closest('.item-card').dataset.id);
+            });
+            document.getElementById('edit-item-photo').addEventListener('change', handlePhotoPreview);
+            document.getElementById('item-photo').addEventListener('change', handlePhotoPreview);
+            scanBarcodeBtn.addEventListener('click', startScanner);
+            closeScannerBtn.addEventListener('click', stopScanner);
+        }
+        
+        function initializeSortable() { if (sortableInstance) sortableInstance.destroy(); sortableInstance = new Sortable(itemListEl, { handle: '.drag-handle', animation: 150, ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', onEnd: handleItemDragEnd }); }
+        
+        function handleAddItem(e){e.preventDefault();const t=e.target,o=t.querySelector("#item-name").value.trim(),l=parseFloat(t.querySelector("#item-price").value),i=parseInt(t.querySelector("#item-quantity").value,10),n=t.querySelector("#photo-preview");if(!o||isNaN(l)||isNaN(i)||!appData.currentListId)return void alert("Please fill out all fields correctly.");const a={id:generateId(),name:o,price:l,quantity:i,photo:n.src,createdAt:(new Date).toISOString()};appData.lists[appData.currentListId].items.push(a),saveData(),renderUI(),t.reset(),n.style.display="none",n.src=""}
+        function handleCreateList(){const e=document.getElementById("new-list-name"),t=e.value.trim();if(t){if(Object.values(appData.lists).some(e=>e.name===t))return void alert("A list with this name already exists.");const o=generateId();appData.lists[o]={id:o,name:t,items:[],createdAt:(new Date).toISOString(),groupId:null},appData.currentListId=o,saveData(),renderUI(),newListModal.style.display="none",e.value=""}}
+        function handleDeleteList(){if(!appData.currentListId)return;const e=appData.lists[appData.currentListId].name;confirm(`Are you sure you want to delete the list "${e}"?`)&&(delete appData.lists[appData.currentListId],appData.currentListId=Object.keys(appData.lists)[0]||null,saveData(),renderUI())}
+        function handleDeleteItem(e){const t=appData.lists[appData.currentListId];t&&(t.items=t.items.filter(t=>t.id!==e),saveData(),renderUI())}
+        function openEditItemModal(e){const t=appData.lists[appData.currentListId].items.find(t=>t.id===e);if(!t)return;document.getElementById("edit-item-id").value=t.id,document.getElementById("edit-item-name").value=t.name,document.getElementById("edit-item-price").value=t.price,document.getElementById("edit-item-quantity").value=t.quantity;const o=document.getElementById("edit-photo-preview");o.src=t.photo||"",o.style.display=t.photo?"block":"none",document.getElementById("edit-item-photo").value="",editItemModal.style.display="flex"}
+        function handleSaveChanges(){const e=document.getElementById("edit-item-id").value,t=appData.lists[appData.currentListId],o=t.items.findIndex(t=>t.id===e);if(-1===o)return;const l=document.getElementById("edit-item-name").value.trim(),i=parseFloat(document.getElementById("edit-item-price").value),n=parseInt(document.getElementById("edit-item-quantity").value,10);if(!l||isNaN(i)||isNaN(n))return void alert("Please fill out all fields correctly.");t.items[o].name=l,t.items[o].price=i,t.items[o].quantity=n,t.items[o].photo=document.getElementById("edit-photo-preview").src,saveData(),renderUI(),editItemModal.style.display="none"}
+        function handleItemDragEnd(e){const{oldIndex:t,newIndex:o}=e,l=appData.lists[appData.currentListId];if(!l)return;const[i]=l.items.splice(t,1);l.items.splice(o,0,i),saveData()}
+        function handlePhotoPreview(event){const t=event.target,o="edit-item-photo"===t.id?document.getElementById("edit-photo-preview"):document.getElementById("photo-preview"),l=t.files[0];if(l){const e=new FileReader;e.onload=t=>{o.src=t.target.result,o.style.display="block"},e.readAsDataURL(l)}else o.src="",o.style.display="none"}
+        function startScanner(){addItemForm.style.display="none",scannerContainer.style.display="block";const e={fps:10,qrbox:{width:250,height:150}},t=(e,t)=>{stopScanner(),fetchProductInfo(e)};html5QrCode.start({facingMode:"environment"},e,t,e=>{}).catch(e=>{alert("Could not start scanner."),stopScanner()})}
+        function stopScanner(){html5QrCode.stop().then(e=>{scannerContainer.style.display="none",addItemForm.style.display="block"}).catch(e=>{scannerContainer.style.display="none",addItemForm.style.display="block"})}
+        async function fetchProductInfo(e){alert(`Searching for barcode: ${e}...`);try{const t=await fetch(`https://world.openfoodfacts.org/api/v0/product/${e}.json`);if(!t.ok)throw new Error(`HTTP error! status: ${t.status}`);const o=await t.json();if(1===o.status&&o.product){const e=o.product;document.getElementById("item-name").value=e.product_name||e.generic_name||"Unknown Product";const t=document.getElementById("photo-preview"),l=e.image_front_url||e.image_url||"";l?(t.src=l,t.style.display="block"):(t.style.display="none",t.src=""),alert("Product found!")}else alert("Product not found.")}catch(e){alert("Failed to fetch product information.")}}
+        function openGroupManager(){renderGroupManager(),manageGroupsModal.style.display="flex"}
+        function renderGroupManager(){const e=document.getElementById("list-group-assignments");e.innerHTML="",Object.values(appData.lists).sort((e,t)=>e.name.localeCompare(t.name)).forEach(t=>{const o=document.createElement("li");o.className="management-item";const l=document.createElement("select");l.dataset.listId=t.id;const i=document.createElement("option");i.value="null",i.textContent="Ungrouped",l.appendChild(i),Object.values(appData.groups).sort((e,t)=>e.name.localeCompare(t.name)).forEach(e=>{const o=document.createElement("option");o.value=e.id,o.textContent=e.name,t.groupId===e.id&&(o.selected=!0),l.appendChild(o)}),o.innerHTML=`<span class="name">${t.name}</span>`,o.appendChild(l),e.appendChild(o)})}
+        function handleCreateGroup(){const e=document.getElementById("new-group-name"),t=e.value.trim();if(!t)return void alert("Group name cannot be empty.");if(Object.values(appData.groups).some(e=>e.name===t))return void alert("A group with this name already exists.");const o=generateId();appData.groups[o]={id:o,name:t},saveData(),renderGroupManager(),e.value=""}
+        function handleAssignListToGroup(e){const t=e.target,o=t.dataset.listId,l="null"===t.value?null:t.value;appData.lists[o]&&(appData.lists[o].groupId=l,saveData(),renderListSelector())}
+        
+        function getFilteredLists() {
+            if (currentAnalyticsFilter.type === 'all') return Object.values(appData.lists);
+            let listIds = new Set();
+            if (currentAnalyticsFilter.ids.lists) currentAnalyticsFilter.ids.lists.forEach(id => listIds.add(id));
+            if (currentAnalyticsFilter.ids.groups) {
+                currentAnalyticsFilter.ids.groups.forEach(groupId => {
+                    Object.values(appData.lists).forEach(list => { if (list.groupId === groupId) listIds.add(list.id); });
+                });
+            }
+            return Array.from(listIds).map(id => appData.lists[id]);
+        }
+        
+        function openGlobalAnalytics() {
+            const listsToAnalyze = getFilteredLists();
+            const contentEl = document.getElementById('global-analytics-content');
+            const chartContainer = globalAnalyticsModal.querySelector('.chart-container');
+            if (analyticsChart) analyticsChart.destroy();
+            
+            if (listsToAnalyze.length === 0) {
+                contentEl.innerHTML = "<p>No lists match the current filter.</p>";
+                chartContainer.style.display = 'none';
+                globalAnalyticsModal.style.display = 'flex';
+                return;
+            }
+            chartContainer.style.display = 'block';
+
+            let totalSpentAll = 0, totalItemsAll = 0, listTotals = [];
+            listsToAnalyze.forEach(list => {
+                const listSpent = list.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const listItems = list.items.reduce((sum, item) => sum + item.quantity, 0);
+                totalSpentAll += listSpent;
+                totalItemsAll += listItems;
+                listTotals.push({ name: list.name, total: listSpent, createdAt: list.createdAt });
+            });
+            listTotals.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+            const chartLabels = listTotals.map(list => list.name);
+            const chartData = listTotals.map(list => list.total);
+            const ctx = document.getElementById('spending-chart').getContext('2d');
+            analyticsChart = new Chart(ctx, { type: 'line', data: { labels: chartLabels, datasets: [{ label: 'Total Spending', data: chartData, backgroundColor: 'rgba(142, 68, 173, 0.2)', borderColor: 'rgba(142, 68, 173, 1)', borderWidth: 2, fill: true, tension: 0.1 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Spending Over Time' }}, scales: { y: { beginAtZero: true, ticks: { callback: (value) => '$' + value.toFixed(2) }}} } });
+
+            const mostExpensive = [...listTotals].sort((a,b) => b.total - a.total)[0] || {name: '-', total: 0};
+            const avgListSpend = listsToAnalyze.length > 0 ? (totalSpentAll / listsToAnalyze.length).toFixed(2) : '0.00';
+            contentEl.innerHTML = `<style>.analysis-item{display:flex; justify-content:space-between; padding: 4px 0;} .analysis-item span:first-child{font-weight:bold;}</style><div class="analysis-item"><span>Lists Included:</span> <span>${listsToAnalyze.length}</span></div><div class="analysis-item"><span>Total Items:</span> <span>${totalItemsAll}</span></div><div class="analysis-item"><span>Total Spending:</span> <span>$${totalSpentAll.toFixed(2)}</span></div><hr><div class="analysis-item"><span>Average List Total:</span> <span>$${avgListSpend}</span></div><div class="analysis-item"><span>Most Expensive List:</span> <span>${mostExpensive.name} ($${mostExpensive.total.toFixed(2)})</span></div>`;
+            globalAnalyticsModal.style.display = 'flex';
+        }
+
+        function openAnalyticsFilterModal() {
+            const filterOptionsList = document.getElementById('filter-options-list');
+            filterOptionsList.innerHTML = '';
+        
+            const createFilterItem = (type, item) => {
+                const div = document.createElement('div');
+                div.className = 'filter-item';
+
+                let isChecked = false;
+                if (currentAnalyticsFilter.type === 'custom') {
+                    const ids = currentAnalyticsFilter.ids[type + 's'];
+                    if (ids && ids.includes(item.id)) {
+                        isChecked = true;
+                    }
+                }
+                
+                const sanitizedName = item.name.replace(/</g, "<").replace(/>/g, ">");
+
+                div.innerHTML = `
+                    <label>
+                        <input 
+                            type="checkbox" 
+                            class="filter-checkbox" 
+                            data-type="${type}" 
+                            value="${item.id}"
+                            ${isChecked ? 'checked' : ''}
+                        >
+                        <span>${sanitizedName}</span>
+                    </label>
+                `;
+                return div;
+            };
+        
+            if (Object.keys(appData.groups).length > 0) {
+                const groupsHeader = document.createElement('div');
+                groupsHeader.className = 'filter-group-header';
+                groupsHeader.textContent = 'Groups';
+                filterOptionsList.appendChild(groupsHeader);
+                Object.values(appData.groups).sort((a,b) => a.name.localeCompare(b.name)).forEach(group => filterOptionsList.appendChild(createFilterItem('group', group)));
+            }
+        
+            const listsHeader = document.createElement('div');
+            listsHeader.className = 'filter-group-header';
+            listsHeader.textContent = 'Individual Lists';
+            filterOptionsList.appendChild(listsHeader);
+            Object.values(appData.lists).sort((a,b) => a.name.localeCompare(b.name)).forEach(list => filterOptionsList.appendChild(createFilterItem('list', list)));
+        
+            analyticsFilterModal.style.display = 'flex';
+        }
+        
+        function handleApplyFilter() {
+            const selectedGroups = [];
+            const selectedLists = [];
+            // Query inside the modal for checkboxes
+            document.querySelectorAll('#analytics-filter-modal .filter-checkbox:checked').forEach(checkbox => {
+                if (checkbox.dataset.type === 'group') {
+                    selectedGroups.push(checkbox.value);
+                } else {
+                    selectedLists.push(checkbox.value);
+                }
+            });
+            
+            if (selectedGroups.length === 0 && selectedLists.length === 0) {
+                currentAnalyticsFilter = { type: 'all', ids: { groups: [], lists: [] } };
+            } else {
+                currentAnalyticsFilter = { type: 'custom', ids: { groups: selectedGroups, lists: selectedLists } };
+            }
+            analyticsFilterModal.style.display = 'none';
+            openGlobalAnalytics();
+        }
+
+        function downloadFile(filename, content, contentType) {
+            const a = document.createElement('a');
+            const file = new Blob([content], {type: contentType});
+            a.href = URL.createObjectURL(file);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+        
+        function handleExportView(format) {
+            const listsToExport = getFilteredLists();
+            if (listsToExport.length === 0) return alert("No lists selected in the filter to export.");
+            
+            if (format === 'json') {
+                const exportData = { lists: {}, groups: {} };
+                listsToExport.forEach(list => {
+                    exportData.lists[list.id] = list;
+                    if (list.groupId && appData.groups[list.groupId]) exportData.groups[list.groupId] = appData.groups[list.groupId];
+                });
+                downloadFile('SmartShop_Export.json', JSON.stringify(exportData, null, 2), 'application/json');
+            } else if (format === 'csv') {
+                let csvContent = "List Name,Item Name,Price,Quantity,Photo URL\r\n";
+                listsToExport.forEach(list => {
+                    list.items.forEach(item => {
+                        csvContent += `"${list.name}","${item.name}",${item.price},${item.quantity},"${item.photo || ''}"\r\n`;
+                    });
+                });
+                downloadFile('SmartShop_Export.csv', csvContent, 'text/csv;charset=utf-8;');
+            }
+        }
+        
+        function handleBackupAllData() {
+            if (confirm("This will create a backup file of ALL your data. Continue?")) {
+                downloadFile('SmartShop_Full_Backup.json', JSON.stringify(appData, null, 2), 'application/json');
+            }
+        }
+
+        function handleImportData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!importedData.lists) throw new Error("Invalid backup file.");
+
+                    if(importedData.groups) {
+                        Object.values(importedData.groups).forEach(importedGroup => {
+                            let groupName = importedGroup.name;
+                            let nameCounter = 1;
+                            while(Object.values(appData.groups).some(g => g.name === groupName)) groupName = `${importedGroup.name} (Imported ${nameCounter++})`;
+                            const newGroupId = generateId();
+                            appData.groups[newGroupId] = { id: newGroupId, name: groupName };
+                            Object.values(importedData.lists).forEach(l => { if (l.groupId === importedGroup.id) l.groupId = newGroupId; });
+                        });
+                    }
+                    
+                    Object.values(importedData.lists).forEach(importedList => {
+                        let listName = importedList.name;
+                        let nameCounter = 1;
+                        while(Object.values(appData.lists).some(l => l.name === listName)) listName = `${importedList.name} (Imported ${nameCounter++})`;
+                        const newListId = generateId();
+                        const originalList = importedData.lists[importedList.id] || importedList;
+                        appData.lists[newListId] = { ...originalList, id: newListId, name: listName };
+                    });
+
+                    saveData();
+                    renderUI();
+                    alert("Data imported successfully!");
+                } catch (err) {
+                    alert("Import failed. The file is either corrupted or not a valid backup file.");
+                    console.error("Import Error:", err);
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // --- Start the App ---
+        initialize();
+    });
+    </script>
+</body>
+</html>
